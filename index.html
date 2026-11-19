@@ -1,0 +1,2658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Happy Birthday - Interactive Gift Experience</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls for 3D Universe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            pink: '#ff758c',
+                            purple: '#764ba2',
+                            dark: '#0a0a10',
+                            card: '#161623',
+                            accent: '#ff7eb3'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        cursive: ['"Dancing Script"', 'cursive'],
+                        hand: ['"Caveat"', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #12061e;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(255, 117, 140, 0.16) 0%, transparent 45%),
+                radial-gradient(circle at 80% 25%, rgba(255, 209, 102, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 50% 80%, rgba(118, 75, 162, 0.28) 0%, transparent 55%),
+                radial-gradient(circle at 50% 45%, #2b0947 0%, #0d0516 80%);
+            color: #f1f5f9;
+            overflow: hidden;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Ambient Festive Birthday Backdrop Animations */
+        @keyframes floatUpSlow {
+            0% { transform: translateY(105vh) rotate(-6deg); opacity: 0; }
+            15% { opacity: 0.55; }
+            85% { opacity: 0.55; }
+            100% { transform: translateY(-15vh) rotate(8deg); opacity: 0; }
+        }
+        @keyframes twinkleSparkle {
+            0%, 100% { opacity: 0.18; transform: scale(0.85); }
+            50% { opacity: 0.75; transform: scale(1.25); }
+        }
+        @keyframes swayBunting {
+            0%, 100% { transform: rotate(-1.5deg); }
+            50% { transform: rotate(1.5deg); }
+        }
+        .ambient-balloon {
+            position: absolute;
+            bottom: -60px;
+            animation: floatUpSlow linear infinite;
+            will-change: transform, opacity;
+        }
+        .ambient-sparkle {
+            position: absolute;
+            border-radius: 9999px;
+            animation: twinkleSparkle ease-in-out infinite;
+            will-change: transform, opacity;
+        }
+        .bunting-flag {
+            width: 0;
+            height: 0;
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-top: 22px solid var(--flag-color, #ff758c);
+            transform-origin: top center;
+            will-change: transform;
+            animation: swayBunting 3.2s ease-in-out infinite;
+        }
+
+        /* Editable Text Visual Feedback */
+        /* [data-eid] = every editable text box (stays set after locking, so spacing never changes) */
+        [data-eid],
+        [contenteditable="true"] {
+            outline: none;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        /* background-color only (never the "background" shorthand) so gradients are not wiped */
+        [contenteditable="true"]:hover {
+            background-color: rgba(255, 117, 140, 0.25);
+            box-shadow: 0 0 0 1px rgba(255, 117, 140, 0.6);
+            cursor: text;
+        }
+        [contenteditable="true"]:focus {
+            background-color: rgba(255, 117, 140, 0.35);
+            box-shadow: 0 0 0 2px rgba(255, 117, 140, 0.9);
+        }
+
+        /* Editable Image Hover Overlay */
+        .editable-img-container {
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .editable-img-container::after {
+            content: '📷 Change Photo';
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ff758c;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            backdrop-filter: blur(2px);
+            border-radius: inherit;
+            z-index: 25;
+        }
+        .editable-img-container:hover::after {
+            opacity: 1;
+        }
+
+        /* Read-Only Mode Overrides */
+        body.readonly-mode [data-eid],
+        body.readonly-mode [contenteditable="true"] {
+            pointer-events: none !important;
+            box-shadow: none !important;
+            /* no background override: it erased chat bubble colours and gradient text */
+        }
+        body.readonly-mode .editable-img-container::after {
+            display: none !important;
+        }
+        body.readonly-mode .admin-only {
+            display: none !important;
+        }
+        /* Keep polaroid cards interactive in readonly-mode, but ONLY on the slide that is on screen.
+           (Before, hidden slide-3 cards sat above the candle and swallowed its taps.) */
+        body.readonly-mode .active-slide .polaroid-card:not([data-peeled="true"]) {
+            pointer-events: auto !important;
+            cursor: grab !important;
+        }
+        .story-slide:not(.active-slide),
+        .story-slide:not(.active-slide) * {
+            pointer-events: none !important;
+        }
+        body.readonly-mode .polaroid-card:active {
+            cursor: grabbing !important;
+        }
+
+        /* Candle Visuals - Fixed High-Contrast Visibility in Both Edit & Locked Modes */
+        .candle-number {
+            font-size: 6.8rem;
+            font-weight: 900;
+            line-height: 1;
+            color: #ffd166;
+            background: linear-gradient(180deg, #ffffff 0%, #ffd166 48%, #ff6b8b 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 4px 18px rgba(255, 117, 140, 0.75)) drop-shadow(0 0 8px rgba(255, 209, 102, 0.55));
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+            min-width: 110px;
+            z-index: 15;
+            transform: translateZ(0);
+        }
+        #candleGroup {
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            padding: 28px 24px 12px;   /* bigger tap area incl. flame */
+            margin: -28px -24px -12px;
+        }
+        /* In locked mode the number/wick/flame never catch the tap; the whole candle group does */
+        body.readonly-mode #candleGroup * { pointer-events: none !important; }
+        /* Ensure locked/readonly candle number and Happy Birthday greeting stay 100% crisp, visible, and clickable */
+        body.readonly-mode #candleGroup {
+            pointer-events: auto !important;
+            cursor: pointer !important;
+        }
+        body.readonly-mode #wishHeader:not(.hidden) {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+            visibility: visible !important;
+        }
+        @media (min-width: 768px) {
+            .candle-number { font-size: 9rem; }
+        }
+        .wick {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 20px;
+            background: #222;
+            border-radius: 4px;
+            z-index: 16;
+        }
+        .flame {
+            position: absolute;
+            top: -44px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 40px;
+            background: radial-gradient(ellipse at bottom, #fff 0%, #ffbe0b 25%, #ff0055 80%, transparent 100%);
+            border-radius: 50% 50% 35% 35%;
+            box-shadow: 0 0 18px 4px rgba(255, 117, 140, 0.55), 0 0 36px 8px rgba(255, 190, 11, 0.35);
+            animation: flicker 0.18s infinite alternate ease-in-out;
+            will-change: transform;
+            pointer-events: none;
+            transform-origin: center bottom;
+            z-index: 17;
+        }
+        @keyframes flicker {
+            0% { transform: translateX(-50%) rotate(-2deg) scale(1); }
+            100% { transform: translateX(-50%) rotate(2deg) scale(1.08); }
+        }
+        .melting {
+            animation: meltDown 1.4s forwards ease-in-out;
+            will-change: transform, opacity;
+            pointer-events: none;
+        }
+        @keyframes meltDown {
+            0% { opacity: 1; transform: scale(1) translateY(0); }
+            50% { opacity: 0.8; transform: scaleY(0.4) translateY(40px); }
+            100% { opacity: 0; transform: scaleY(0) translateY(100px); }
+        }
+
+        /* Slide Transition System - Balanced Vertical Centering */
+        .story-slide {
+            position: absolute;
+            top: 52px;
+            bottom: 58px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+            transform: scale(0.96);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px 12px;
+            overflow: hidden;
+        }
+        .story-slide.active-slide {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+
+        /* 3D Book Scrapbook Viewport */
+        .real-book-viewport {
+            perspective: 2500px;
+            width: 96%;
+            max-width: 620px;
+            aspect-ratio: 4 / 3;
+            max-height: 54vh;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .real-book-body {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            background: #231203;
+            border-radius: 12px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(255,117,140,0.2);
+            padding: 8px;
+        }
+
+        .book-spine-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 14px;
+            transform: translateX(-50%);
+            background: linear-gradient(90deg, rgba(0,0,0,0.5) 0%, rgba(255,255,255,0.2) 50%, rgba(0,0,0,0.5) 100%);
+            z-index: 60;
+            pointer-events: none;
+        }
+
+        .book-sheet {
+            position: absolute;
+            width: 50%;
+            height: calc(100% - 16px);
+            top: 8px;
+            right: 8px;
+            transform-style: preserve-3d;
+            transform-origin: left center;
+            transition: transform 0.9s cubic-bezier(0.645, 0.045, 0.355, 1);
+            cursor: pointer;
+        }
+
+        .book-sheet.turned {
+            transform: rotateY(-180deg);
+        }
+
+        .sheet-face {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background: #fffdf9;
+            background-image: radial-gradient(#e2d5c1 1.2px, transparent 0);
+            background-size: 16px 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .sheet-face.front-face {
+            border-radius: 0 10px 10px 0;
+            box-shadow: inset 12px 0 20px rgba(0,0,0,0.06), 4px 0 12px rgba(0,0,0,0.15);
+        }
+
+        .sheet-face.back-face {
+            transform: rotateY(180deg);
+            border-radius: 10px 0 0 10px;
+            box-shadow: inset -12px 0 20px rgba(0,0,0,0.06), -4px 0 12px rgba(0,0,0,0.15);
+        }
+
+        .cover-face {
+            background: linear-gradient(135deg, #4a154b 0%, #2b0938 100%) !important;
+            border: 2px solid #ff758c !important;
+            box-shadow: inset 0 0 30px rgba(255,117,140,0.3) !important;
+            color: #fff;
+        }
+
+        .bday-tape {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%) rotate(-2deg);
+            width: 55px;
+            height: 16px;
+            background: rgba(255, 182, 193, 0.75);
+            backdrop-filter: blur(2px);
+            border: 1px dashed rgba(255,255,255,0.8);
+            z-index: 10;
+        }
+        .bday-sticker {
+            position: absolute;
+            font-size: 18px;
+            filter: drop-shadow(0 3px 5px rgba(0,0,0,0.2));
+            z-index: 20;
+            cursor: pointer;
+        }
+
+        /* Stacked Center Polaroid Cards (Slide 3) */
+        .polaroid-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            background: #ffffff;
+            padding: 10px 10px 14px 10px;
+            border-radius: 10px;
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.06);
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease, box-shadow 0.2s ease;
+        }
+        .polaroid-card.dragging {
+            transition: none !important;
+            cursor: grabbing;
+            box-shadow: 0 24px 48px rgba(255, 117, 140, 0.35), 0 12px 28px rgba(0, 0, 0, 0.7);
+        }
+
+        .ribbon-card {
+            width: 115px;
+            height: 165px;
+            border-radius: 12px;
+            overflow: hidden;
+            filter: grayscale(40%) opacity(0.9);
+            transition: all 0.35s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        @media (min-width: 640px) {
+            .ribbon-card { width: 140px; height: 195px; }
+        }
+        .ribbon-card:nth-child(even) { transform: translateY(-8px) rotate(-2deg); }
+        .ribbon-card:nth-child(odd) { transform: translateY(8px) rotate(2deg); }
+        .ribbon-card:hover {
+            filter: grayscale(0%) opacity(1);
+            transform: translateY(-5px) scale(1.08) rotate(0deg) !important;
+            z-index: 20;
+            box-shadow: 0 12px 30px rgba(255, 117, 140, 0.5);
+            border-color: #ff758c;
+        }
+
+        .glass-panel {
+            background: rgba(25, 12, 38, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .typing-bubble {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 12px;
+            background: #241432;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+        }
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: #ff758c;
+            border-radius: 50%;
+            animation: bounceDot 1.4s infinite ease-in-out;
+        }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounceDot {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        .chat-msg-anim {
+            animation: popInMsg 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popInMsg {
+            0% { opacity: 0; transform: translateY(12px) scale(0.9); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .chat-bubble-received {
+            background: #2d183f;
+            border: 1px solid rgba(255,117,140,0.3);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble-sent {
+            background: linear-gradient(135deg, #ff758c, #764ba2);
+            border-bottom-right-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative selection:bg-pink-500 selection:text-white">
+
+    <!-- AMBIENT BIRTHDAY DECORATIVE LAYER (Behind Slides, Pointer-Events None) -->
+    <div id="festiveBackdrop" class="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        <!-- Top Bunting Flags Bar -->
+        <div id="buntingRow" class="absolute top-[50px] left-0 right-0 flex justify-around items-start px-1 opacity-75"></div>
+        <!-- Soft Sparkles & Drifting Balloons Container -->
+        <div id="ambientDecorContainer" class="absolute inset-0"></div>
+    </div>
+
+    <!-- TOP HEADER BAR -->
+    <header class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 md:px-6 py-2.5 glass-panel border-b border-white/10">
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-pink-400 uppercase tracking-widest hidden sm:inline">Birthday Gift</span>
+            <div id="stepBadge" class="bg-pink-500/20 text-pink-300 text-xs px-2.5 py-1 rounded-full border border-pink-500/30 font-semibold">
+                Surprise 1 of 6
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="lockShareBtnTop" onclick="lockAndShare()" class="admin-only px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30 hover:scale-105 transition-all">
+                <i class="fas fa-lock"></i> <span class="hidden sm:inline">Lock & Share Gift</span>
+            </button>
+            <button id="musicToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-semibold bg-white/5 hover:bg-white/15 transition-all border border-white/10 shadow-lg">
+                <i id="musicIcon" class="fas fa-music text-pink-400"></i>
+                <span id="musicText" class="hidden sm:inline">Play Birthday Song</span>
+            </button>
+            <button onclick="triggerConfettiBurst()" class="p-2 rounded-full bg-white/5 hover:bg-white/15 transition-all text-pink-400 border border-white/10" title="Pop Confetti!">
+                <i class="fas fa-gift text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN SLIDE CONTAINER -->
+    <main class="relative w-full h-screen overflow-hidden z-10">
+
+        <!-- SLIDE 1: CANDLE BURN INTRO -->
+        <section id="slide1" class="story-slide active-slide">
+            <div id="balloonContainer" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-1000"></div>
+
+            <div class="z-10 text-center flex flex-col items-center justify-center my-auto max-w-xl px-4">
+                <p id="clickHint" class="text-pink-300 font-semibold tracking-widest text-xs uppercase mb-4 animate-bounce">
+                    🎂 Tap the candle age to blow it out 🎂
+                </p>
+
+                <div id="candleGroup" class="relative inline-flex items-center justify-center my-3 cursor-pointer select-none">
+                    <div class="wick"></div>
+                    <div class="flame"></div>
+                    <div id="candleNumber" class="candle-number" contenteditable="true" title="Click to edit age number">22</div>
+                </div>
+
+                <div id="wishHeader" class="hidden opacity-0 transform translate-y-6 transition-all duration-1000 text-center mt-2">
+                    <span class="inline-block px-3.5 py-1 rounded-full text-xs font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30 mb-2">
+                        HAPPY BIRTHDAY CELEBRATION 🎈
+                    </span>
+                    <h1 contenteditable="true" class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-pink-400 to-purple-300 font-cursive tracking-wide mb-2">
+                        Happy Birthday Sweety! 🎉
+                    </h1>
+                    <p contenteditable="true" class="text-gray-300 text-xs md:text-sm leading-relaxed max-w-md mx-auto">
+                        Today is all about celebrating your special day! Click "Continue for surprises" below to unlock your gifts.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 2: 16 PHOTO MOMENTS CAROUSEL -->
+        <section id="slide2" class="story-slide">
+            <div class="w-full max-w-6xl flex flex-col items-center justify-center my-auto">
+                <div class="max-w-5xl mx-auto px-4 mb-3 text-center">
+                    <span class="text-pink-400 font-semibold text-xs tracking-widest uppercase">Memory Ribbon</span>
+                    <h2 contenteditable="true" class="text-2xl md:text-3xl font-extrabold text-white mt-0.5 font-cursive">
+                        Our Favorite Images 📸
+                    </h2>
+                    <p contenteditable="true" class="text-gray-400 text-xs mt-0.5 admin-only">
+                        Click any photo to replace image or URL!
+                    </p>
+                </div>
+
+                <div class="w-full overflow-x-auto py-4 px-2 scrollbar-none flex justify-start md:justify-center">
+                    <div id="ribbonContainer" class="flex gap-2.5 items-center px-2"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 3: CENTER-STACKED INTERACTIVE POLAROID DECK -->
+        <section id="slide3" class="story-slide">
+            <div class="w-full max-w-3xl flex flex-col items-center justify-center my-auto">
+                <div class="max-w-2xl mx-auto px-4 mb-2 text-center">
+                    <span class="text-pink-400 font-semibold text-xs tracking-widest uppercase">Stacked Memory Deck</span>
+                    <h2 contenteditable="true" class="text-2xl md:text-3xl font-extrabold text-white mt-0.5">Our Favorite Moments 📌</h2>
+                    <p class="text-gray-300 text-xs mt-0.5">
+                        Drag or swipe the top photo away to reveal the next memory underneath!
+                    </p>
+                </div>
+
+                <div id="polaroidBoard" class="relative w-full max-w-xl h-[330px] sm:h-[370px] mx-auto rounded-2xl border border-pink-500/20 bg-neutral-950/75 backdrop-blur-sm overflow-hidden shadow-2xl flex items-center justify-center">
+                    <div class="absolute inset-0 bg-[radial-gradient(#5b1a7a_1px,transparent_1px)] [background-size:20px_20px] opacity-35 pointer-events-none"></div>
+
+                    <!-- Subtle End-of-Deck Placeholder underneath all 16 cards -->
+                    <div id="deckEndNote" class="text-center px-6 z-0 select-none transition-opacity duration-300 opacity-0 pointer-events-none">
+                        <div class="text-3xl mb-1">💖</div>
+                        <p class="font-cursive text-xl text-pink-300">All 16 Memories Viewed!</p>
+                        <button type="button" onclick="resetPolaroidStack()" class="mt-2 px-4 py-1.5 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold shadow-lg transition-transform hover:scale-105">
+                            <i class="fas fa-redo-alt mr-1"></i> Stack Photos Again
+                        </button>
+                    </div>
+
+                    <!-- Center-Stacked Polaroids Container -->
+                    <div id="polaroidsContainer" class="absolute inset-0 flex items-center justify-center"></div>
+
+                    <!-- Secret Note Butterflies -->
+                    <div onclick="showNote('You bring so much magic, smiles, and laughter into my life every day! 🦋✨')" 
+                         class="butterfly-btn absolute top-4 left-5 text-2xl sm:text-3xl drop-shadow-[0_0_12px_rgba(255,117,140,0.8)] z-40 cursor-pointer animate-bounce" title="Tap for a secret note">
+                        🦋
+                    </div>
+                    <div onclick="showNote('Wishing you the happiest birthday filled with everything you love! 🌸💖')" 
+                         class="butterfly-btn absolute bottom-4 right-5 text-2xl sm:text-3xl drop-shadow-[0_0_12px_rgba(255,117,140,0.8)] z-40 cursor-pointer animate-bounce" title="Tap for a secret note">
+                        🦋
+                    </div>
+                </div>
+
+                <!-- Stack Controls Bar -->
+                <div class="mt-2.5 flex items-center justify-center gap-2.5">
+                    <span id="stackCounterBadge" class="text-xs font-semibold text-pink-200 bg-white/10 px-3 py-1 rounded-full border border-white/10">
+                        Photo 1 of 16
+                    </span>
+                    <button type="button" onclick="peelTopPolaroid()" class="px-3.5 py-1 rounded-full bg-pink-500/85 hover:bg-pink-500 text-white text-xs font-bold shadow transition-all">
+                        Next Photo <i class="fas fa-forward ml-1"></i>
+                    </button>
+                    <button type="button" onclick="resetPolaroidStack()" class="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-pink-200 text-xs font-semibold border border-white/10 transition-all">
+                        <i class="fas fa-layer-group mr-1"></i> Reset Stack
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 4: REALISTIC CLOSED-TO-OPEN SCRAPBOOK -->
+        <section id="slide4" class="story-slide">
+            <div class="w-full max-w-4xl flex flex-col items-center justify-center my-auto">
+                <div class="max-w-4xl mx-auto px-4 mb-2 text-center">
+                    <h2 contenteditable="true" class="text-2xl md:text-3xl font-extrabold text-white mt-0.5 font-cursive">
+                        Our Story Scrapbook 📖
+                    </h2>
+                    <p contenteditable="true" class="text-gray-400 text-xs">
+                        Flip the pages to see memories
+                    </p>
+                </div>
+
+                <div class="real-book-viewport">
+                    <div class="real-book-body">
+                        <div class="book-spine-line"></div>
+                        <div id="realBookSheetsContainer" class="w-full h-full relative"></div>
+                    </div>
+                </div>
+
+                <div class="mt-2.5 flex items-center gap-3">
+                    <button onclick="flipBookPrev()" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/10">
+                        ← Prev Page
+                    </button>
+                    <span id="bookPageIndicator" class="text-xs font-bold text-pink-300">Closed Cover</span>
+                    <button onclick="flipBookNext()" class="px-3.5 py-1.5 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-xs font-semibold shadow-lg">
+                        Turn Page →
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SLIDE 5: EDITABLE 3D FLOATING PHOTO UNIVERSE -->
+        <section id="slide5" class="story-slide">
+            <div class="w-full max-w-4xl flex flex-col items-center justify-center my-auto">
+                <div class="max-w-4xl mx-auto px-4 text-center mb-2 z-10 relative">
+                    <h2 contenteditable="true" class="text-2xl md:text-3xl font-extrabold text-white mt-0.5">Floating Universe 🌌</h2>
+                    <p contenteditable="true" class="text-gray-400 text-xs">Orbit 360°, scroll/pinch to zoom!</p>
+                </div>
+
+                <div id="threeContainer" class="w-full max-w-3xl h-[310px] sm:h-[360px] md:h-[390px] rounded-2xl overflow-hidden border border-white/10 bg-black/90 relative cursor-grab active:cursor-grabbing shadow-2xl"></div>
+            </div>
+        </section>
+
+        <!-- SLIDE 6: IPHONE CHAT WITH TYPING ANIMATION -->
+        <section id="slide6" class="story-slide">
+            <div class="w-full max-w-md flex flex-col items-center justify-center my-auto">
+                <div class="text-center mb-2">
+                    <span class="text-pink-400 font-semibold text-xs tracking-widest uppercase">Birthday Message</span>
+                    <h2 contenteditable="true" class="text-2xl font-bold text-white mt-0.5">Surprise Text Messages 📱</h2>
+                    <p class="text-xs text-gray-400 admin-only">Add/edit messages below to customize what the recipient sees!</p>
+                </div>
+
+                <div class="w-full max-w-xs bg-black rounded-[36px] p-3 border-4 border-neutral-800 shadow-[0_0_50px_rgba(255,117,140,0.35)] relative overflow-hidden">
+                    <div class="w-18 h-3.5 bg-black rounded-full mx-auto mb-2 border border-neutral-800"></div>
+
+                    <div class="flex items-center justify-between pb-2 border-b border-neutral-800 px-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full editable-img-container overflow-hidden" onclick="openImgReplacer(this)">
+                                <img id="chatAvatarImg" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <h4 id="chatRecipientName" contenteditable="true" class="text-xs font-semibold text-white leading-tight">My Love ❤️</h4>
+                                <span id="chatStatusText" contenteditable="true" class="text-[9px] text-pink-400 block">Typing...</span>
+                            </div>
+                        </div>
+                        <button onclick="triggerChatAnimation()" class="text-xs text-pink-400 hover:text-pink-300" title="Replay Animation">
+                            <i class="fas fa-redo-alt"></i>
+                        </button>
+                    </div>
+
+                    <div id="chatMessagesArea" class="h-44 sm:h-48 overflow-y-auto py-2 space-y-2 px-1 text-[11px] flex flex-col">
+                        <div contenteditable="true" class="text-center text-[9px] text-gray-500 my-1">Today 12:00 AM</div>
+                        
+                        <div id="dynamicChatContainer" class="space-y-2 flex flex-col"></div>
+
+                        <div id="typingIndicator" class="typing-bubble self-start my-1">
+                            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-neutral-800 flex items-center gap-1.5">
+                        <button id="chatSenderToggle" type="button" onclick="toggleChatSenderType()" title="Switch between Incoming (Gift) or Outgoing (Reply) message" class="admin-only px-2 py-1.5 rounded-full bg-neutral-800 hover:bg-neutral-700 text-pink-300 text-[10px] font-bold border border-neutral-700 shrink-0 transition-colors">
+                            <i class="fas fa-arrow-down mr-0.5"></i> In
+                        </button>
+                        <input id="chatInput" type="text" placeholder="Type a birthday message..." onkeydown="if(event.key==='Enter') addCustomChatMessage()" class="w-full bg-neutral-900 text-white text-[11px] px-3 py-1.5 rounded-full border border-neutral-700 focus:outline-none focus:border-pink-500">
+                        <button type="button" onclick="addCustomChatMessage()" title="Send Message" class="w-7 h-7 shrink-0 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center text-white text-xs hover:scale-105 transition-transform shadow-md">
+                            <i class="fas fa-paper-plane text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-2.5 text-center admin-only">
+                    <button onclick="lockAndShare()" class="px-6 py-2 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-pink-600 text-white text-xs font-bold shadow-xl shadow-pink-500/30 hover:scale-105 transition-all flex items-center gap-2 mx-auto">
+                        <i class="fas fa-lock"></i> Lock Content & Share Gift Link
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM STEP NAVIGATION CONTROLS -->
+    <footer class="fixed bottom-0 left-0 right-0 z-50 px-3 md:px-6 py-2.5 glass-panel border-t border-white/10 flex items-center justify-between">
+        <button id="prevBtn" onclick="changeSlide(-1)" class="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-all opacity-50 pointer-events-none">
+            <i class="fas fa-arrow-left mr-1"></i> Previous
+        </button>
+
+        <span class="text-xs text-gray-400 hidden md:block admin-only">Click text/photos to edit gift content!</span>
+
+        <button id="nextBtn" onclick="changeSlide(1)" class="px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold shadow-lg shadow-pink-500/30 hover:scale-105 transition-all flex items-center gap-2">
+            Continue for surprises <i class="fas fa-arrow-right"></i>
+        </button>
+    </footer>
+
+    <!-- PHOTO CROP MODAL -->
+    <style>
+        #cropStage { position: relative; margin: 0 auto; overflow: hidden; border-radius: 10px; touch-action: none; user-select: none; -webkit-user-select: none; background: #000; }
+        #cropStage img { display: block; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
+        #cropBox { position: absolute; left: 0; top: 0; border: 2px solid #ff758c; box-shadow: 0 0 0 600px rgba(0,0,0,0.62); cursor: move; touch-action: none; box-sizing: border-box; will-change: transform, width, height; }
+        #cropBox .crop-grid { position: absolute; inset: 0; pointer-events: none;
+            background-image:
+                linear-gradient(to right, transparent calc(33.33% - 0.5px), rgba(255,255,255,0.35) calc(33.33% - 0.5px), rgba(255,255,255,0.35) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255,255,255,0.35) calc(66.66% - 0.5px), rgba(255,255,255,0.35) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)),
+                linear-gradient(to bottom, transparent calc(33.33% - 0.5px), rgba(255,255,255,0.35) calc(33.33% - 0.5px), rgba(255,255,255,0.35) calc(33.33% + 0.5px), transparent calc(33.33% + 0.5px), transparent calc(66.66% - 0.5px), rgba(255,255,255,0.35) calc(66.66% - 0.5px), rgba(255,255,255,0.35) calc(66.66% + 0.5px), transparent calc(66.66% + 0.5px)); }
+        #cropBox .crop-handle { position: absolute; width: 26px; height: 26px; touch-action: none; }
+        #cropBox .crop-handle::after { content: ''; position: absolute; left: 7px; top: 7px; width: 12px; height: 12px; background: #fff; border: 2px solid #ff758c; border-radius: 3px; }
+        .crop-ratio-btn { padding: 5px 11px; border-radius: 9999px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,117,140,0.5); color: #fbcfe8; background: rgba(255,117,140,0.12); }
+        .crop-ratio-btn.active { background: #ec4899; color: #fff; border-color: #ec4899; }
+    </style>
+    <div id="cropModal" style="z-index: 60;" class="fixed inset-0 bg-black/90 flex items-center justify-center p-3 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div style="background:#190c26;" class="max-w-md w-full p-4 rounded-2xl border border-pink-500/30 text-center shadow-2xl">
+            <h3 class="text-base font-bold text-pink-300 mb-1">Crop Photo ✂️</h3>
+            <p class="text-[11px] text-gray-400 mb-3">Drag the box to move it, drag a corner to resize.</p>
+            <div id="cropStage">
+                <img id="cropImg" alt="">
+                <div id="cropBox">
+                    <div class="crop-grid"></div>
+                    <span class="crop-handle" data-h="nw" style="left:-13px;top:-13px;cursor:nwse-resize"></span>
+                    <span class="crop-handle" data-h="ne" style="right:-13px;top:-13px;cursor:nesw-resize"></span>
+                    <span class="crop-handle" data-h="sw" style="left:-13px;bottom:-13px;cursor:nesw-resize"></span>
+                    <span class="crop-handle" data-h="se" style="right:-13px;bottom:-13px;cursor:nwse-resize"></span>
+                </div>
+            </div>
+            <div id="cropRatios" class="flex flex-wrap gap-2 justify-center my-3">
+                <button type="button" class="crop-ratio-btn" data-r="slot" id="cropRatioSlot">Fit frame</button>
+                <button type="button" class="crop-ratio-btn" data-r="free">Free</button>
+                <button type="button" class="crop-ratio-btn" data-r="1">1:1</button>
+                <button type="button" class="crop-ratio-btn" data-r="1.3333">4:3</button>
+                <button type="button" class="crop-ratio-btn" data-r="0.75">3:4</button>
+                <button type="button" class="crop-ratio-btn" data-r="1.7778">16:9</button>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="cancelCrop()" class="flex-1 py-2.5 rounded-xl border border-neutral-600 text-gray-300 text-xs font-bold hover:bg-white/10 transition-colors">Cancel</button>
+                <button type="button" onclick="confirmCrop()" class="flex-1 py-2.5 rounded-xl bg-pink-500 text-white text-xs font-bold hover:bg-pink-600 transition-colors">Crop &amp; Add Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAGE REPLACER MODAL -->
+    <div id="imgModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-md w-full p-5 rounded-2xl border border-pink-500/30 text-center relative shadow-2xl">
+            <button type="button" onclick="closeImgModal()" class="absolute top-3 right-3 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+            <h3 class="text-base font-bold text-pink-300 mb-3">Replace Image 🎂</h3>
+
+            <input type="file" id="imgFileInput" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
+            <button type="button" onclick="triggerDeviceFilePicker()" class="block w-full py-3.5 px-4 rounded-xl border-2 border-dashed border-pink-500/50 hover:border-pink-400 bg-pink-500/15 hover:bg-pink-500/25 cursor-pointer text-xs text-pink-200 font-bold mb-3 transition-all active:scale-98">
+                <i class="fas fa-folder-open mr-1.5 text-sm"></i> Choose Photo From Device
+            </button>
+            <p id="uploadStatusText" class="text-[11px] text-pink-300 mb-2 hidden"></p>
+
+            <div class="text-[10px] text-gray-400 uppercase tracking-widest my-2">Or Paste Image URL</div>
+
+            <input type="text" id="imgUrlInput" placeholder="https://example.com/photo.jpg" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-pink-500 mb-3">
+
+            <button type="button" onclick="applyUrlImage()" class="w-full py-2 rounded-xl bg-pink-500 text-white text-xs font-bold hover:bg-pink-600 transition-colors">
+                Set Photo URL
+            </button>
+        </div>
+    </div>
+
+    <!-- BUTTERFLY SECRET NOTE MODAL -->
+    <div id="noteModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-sm w-full p-5 rounded-2xl border border-pink-500/40 text-center relative shadow-2xl">
+            <button onclick="closeNote()" class="absolute top-3 right-3 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="text-3xl mb-1">💌</div>
+            <h3 class="text-lg font-bold text-pink-300 font-cursive mb-1">Secret Birthday Note</h3>
+            <p id="noteModalText" contenteditable="true" class="text-gray-200 leading-relaxed font-hand text-lg">
+                Note content here...
+            </p>
+        </div>
+    </div>
+
+    <!-- SHARE LINK CUSTOM MODAL -->
+    <div id="shareModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-md w-full p-5 rounded-2xl border border-pink-500/40 text-center relative shadow-2xl">
+            <button type="button" onclick="closeShareModal()" class="absolute top-3 right-3 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="text-3xl mb-1">🔒🎁</div>
+            <h3 class="text-lg font-bold text-pink-300 mb-1">Gift Locked & Ready!</h3>
+            <p id="shareModalStatus" class="text-xs text-gray-300 mb-3">
+                Your customizations are locked in read-only mode. Share this QR code or the link:
+            </p>
+            <div id="qrWrap" class="mb-3 flex flex-col items-center">
+                <div id="qrBox" class="bg-white rounded-2xl p-3 shadow-lg" style="display:none;">
+                    <canvas id="qrCanvas" width="240" height="240" style="width:240px;height:240px;display:block;"></canvas>
+                </div>
+                <p id="qrHint" class="text-[11px] text-gray-400 mt-2">Scan with a phone camera to open the gift 🎁</p>
+            </div>
+            <div class="relative mb-3">
+                <!-- Link box: hidden while a QR is shown, auto-shown if the link is too long for a QR -->
+                <input type="text" id="shareUrlBox" readonly onclick="this.select()" class="w-full bg-neutral-900 border border-pink-500/40 rounded-xl px-3 py-2.5 text-xs font-mono text-pink-200 whitespace-nowrap overflow-x-auto focus:outline-none" style="position:absolute;left:-9999px;top:0;opacity:0;">
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="copyShareUrl()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-bold hover:opacity-95 transition-opacity shadow-lg">
+                    <i class="fas fa-copy mr-1"></i> Copy Link
+                </button>
+                <button type="button" onclick="downloadQr()" class="px-4 py-2.5 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold transition-colors shadow-lg" title="Save QR image">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button type="button" onclick="shareNativeOrWhatsApp()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-lg" title="Share via WhatsApp / Apps">
+                    <i class="fab fa-whatsapp text-sm"></i>
+                </button>
+            </div>
+            <button type="button" onclick="toggleHqPanel()" class="mt-3 w-full text-[11px] text-pink-300 underline">Photos look blurry? Get the full-quality version</button>
+            <div id="hqPanel" class="hidden mt-3 text-left text-[11px] text-gray-300 space-y-2 bg-black/30 rounded-xl p-3 border border-pink-500/20">
+                <p><b class="text-pink-300">1.</b> Download your locked gift with sharp photos:</p>
+                <button type="button" onclick="downloadFullQualityHtml()" class="w-full py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white font-bold"><i class="fas fa-file-arrow-down mr-1"></i> Download index.html</button>
+                <p><b class="text-pink-300">2.</b> Upload it to a GitHub repo as <code>index.html</code> and turn on GitHub Pages (Settings → Pages).</p>
+                <p><b class="text-pink-300">3.</b> Paste your GitHub Pages link; the QR above switches to it:</p>
+                <input type="url" id="hostedUrlInput" oninput="onHostedUrlInput(this)" placeholder="https://yourname.github.io/repo/" class="w-full bg-neutral-900 border border-pink-500/40 rounded-lg px-2.5 py-2 font-mono text-pink-200 focus:outline-none">
+                <p id="hqStatus" class="text-amber-300"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- INTERACTIVE BIRTHDAY ENGINE -->
+    <script>
+        // 16 Default Birthday Memory Images
+        // Sharp (full-size) copies of replaced universe photos, used for the texture and the full-quality hosted file
+        const sixteenPhotosSharp = {};
+        const sixteenPhotos = [
+            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
+            "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80",
+            "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80",
+            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80",
+            "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&q=80",
+            "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=400&q=80",
+            "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&q=80",
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80",
+            "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&q=80",
+            "https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=400&q=80",
+            "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80",
+            "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80",
+            "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&q=80",
+            "https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?w=400&q=80",
+            "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=400&q=80",
+            "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&q=80"
+        ];
+
+        /* -------------------------------------------------------------
+           AMBIENT FESTIVE BIRTHDAY BACKDROP GENERATOR
+        ------------------------------------------------------------- */
+        function initFestiveDecorations() {
+            const buntingRow = document.getElementById('buntingRow');
+            const decorContainer = document.getElementById('ambientDecorContainer');
+            const flagColors = ['#ff758c', '#ffd166', '#a855f7', '#38bdf8', '#fb7185', '#34d399'];
+
+            if (buntingRow) {
+                buntingRow.innerHTML = '';
+                const flagCount = Math.min(28, Math.max(12, Math.floor(window.innerWidth / 34)));
+                for (let i = 0; i < flagCount; i++) {
+                    const flag = document.createElement('div');
+                    flag.className = 'bunting-flag';
+                    flag.style.setProperty('--flag-color', flagColors[i % flagColors.length]);
+                    flag.style.animationDelay = `${(i % 5) * 0.25}s`;
+                    buntingRow.appendChild(flag);
+                }
+            }
+
+            if (decorContainer) {
+                decorContainer.innerHTML = '';
+                // Soft glowing bokeh / confetti sparkles
+                const small = window.innerWidth < 640;
+                for (let i = 0; i < (small ? 12 : 28); i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'ambient-sparkle';
+                    const size = Math.random() * 5 + 3;
+                    dot.style.width = `${size}px`;
+                    dot.style.height = `${size}px`;
+                    dot.style.left = `${Math.random() * 98}%`;
+                    dot.style.top = `${Math.random() * 92 + 4}%`;
+                    dot.style.backgroundColor = flagColors[i % flagColors.length];
+                    dot.style.boxShadow = `0 0 10px ${flagColors[i % flagColors.length]}`;
+                    dot.style.animationDuration = `${Math.random() * 2.5 + 2}s`;
+                    dot.style.animationDelay = `${Math.random() * 3}s`;
+                    decorContainer.appendChild(dot);
+                }
+
+                // Gentle drifting birthday emojis (balloons, stars, confetti)
+                const icons = ['🎈', '✨', '🎊', '🎂', '⭐', '💖'];
+                for (let i = 0; i < (small ? 5 : 12); i++) {
+                    const el = document.createElement('div');
+                    el.className = 'ambient-balloon text-lg md:text-2xl';
+                    el.textContent = icons[i % icons.length];
+                    el.style.left = `${(i * 8.3) + (Math.random() * 4)}%`;
+                    el.style.animationDuration = `${Math.random() * 10 + 14}s`;
+                    el.style.animationDelay = `${Math.random() * 12}s`;
+                    decorContainer.appendChild(el);
+                }
+            }
+        }
+
+        /* -------------------------------------------------------------
+           SLIDE NAVIGATION
+        ------------------------------------------------------------- */
+        let currentSlide = 1;
+        const totalSlides = 6;
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 1) currentSlide = 1;
+            if (currentSlide > totalSlides) currentSlide = totalSlides;
+
+            document.querySelectorAll('.story-slide').forEach((slide, idx) => {
+                if (idx + 1 === currentSlide) {
+                    slide.classList.add('active-slide');
+                } else {
+                    slide.classList.remove('active-slide');
+                }
+            });
+
+            document.getElementById('stepBadge').textContent = `Surprise ${currentSlide} of ${totalSlides}`;
+            
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+
+            if (currentSlide === 1) {
+                prevBtn.style.opacity = '0.5';
+                prevBtn.style.pointerEvents = 'none';
+            } else {
+                prevBtn.style.opacity = '1';
+                prevBtn.style.pointerEvents = 'auto';
+            }
+
+            if (currentSlide === totalSlides) {
+                nextBtn.innerHTML = 'All Surprises Unlocked! 💖';
+            } else {
+                nextBtn.innerHTML = 'Continue for surprises <i class="fas fa-arrow-right"></i>';
+            }
+
+            if (currentSlide === 3) resetPolaroidStack();
+            if (currentSlide >= 4) ensure3DUniverse();
+            if (currentSlide === 5) start3DLoop();
+
+            if (currentSlide === 6) {
+                triggerChatAnimation();
+            }
+        }
+
+        /* -------------------------------------------------------------
+           CANDLE BLOWING (SLIDE 1)
+        ------------------------------------------------------------- */
+        let candleBurned = false;
+        function burnCandle() {
+            if (candleBurned) return;
+            candleBurned = true;
+
+            const flame = document.querySelector('.flame');
+            const number = document.getElementById('candleNumber');
+            const wishHeader = document.getElementById('wishHeader');
+            const clickHint = document.getElementById('clickHint');
+            const balloonContainer = document.getElementById('balloonContainer');
+
+            // 1) instant visual feedback on the very first frame
+            if (flame) flame.classList.add('melting');
+            if (number) number.classList.add('melting');
+            if (clickHint) clickHint.style.display = 'none';
+
+            // 2) heavy work (confetti + audio setup) runs AFTER the first frame so the tap never feels stuck
+            requestAnimationFrame(() => setTimeout(() => {
+                triggerConfettiBurst();
+                toggleAudio(true);
+            }, 0));
+
+            setTimeout(() => {
+                if (wishHeader) {
+                    wishHeader.classList.remove('hidden');
+                    setTimeout(() => {
+                        wishHeader.classList.remove('opacity-0', 'transform', 'translate-y-6');
+                    }, 50);
+                }
+                if (balloonContainer) {
+                    balloonContainer.style.opacity = '1';
+                    for (let i = 0; i < 10; i++) {
+                        const b = document.createElement('div');
+                        b.innerHTML = ['🎈', '💖', '⭐', '🎂', '✨'][Math.floor(Math.random() * 5)];
+                        b.className = 'absolute text-2xl animate-pulse';
+                        b.style.left = `${Math.random() * 90 + 5}%`;
+                        b.style.bottom = `${Math.random() * 20}%`;
+                        b.style.transition = 'transform 3s ease-out, opacity 3s ease-out';
+                        balloonContainer.appendChild(b);
+                        setTimeout(() => {
+                            b.style.transform = `translateY(-${Math.random() * 300 + 200}px) rotate(${Math.random() * 60 - 30}deg)`;
+                            b.style.opacity = '0';
+                        }, 50);
+                    }
+                }
+            }, 1000);
+        }
+
+        /* Reliable first-tap handling: pointerup fires immediately on touch (no 300ms wait, no lost first tap
+           after locking). click is kept only as a fallback; burnCandle() ignores repeats. */
+        (function bindCandle() {
+            const group = document.getElementById('candleGroup');
+            if (!group) return;
+            const handler = (e) => {
+                const locked = document.body.classList.contains('readonly-mode');
+                // while editing, tapping the age number edits it instead of blowing the candle
+                if (!locked && e.target && e.target.closest && e.target.closest('#candleNumber')) return;
+                burnCandle();
+            };
+            group.addEventListener('pointerup', handler);
+            group.addEventListener('click', handler);
+        })();
+
+        /* -------------------------------------------------------------
+           MEMORY RIBBON CAROUSEL (SLIDE 2)
+        ------------------------------------------------------------- */
+        function initRibbonCarousel() {
+            const container = document.getElementById('ribbonContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            sixteenPhotos.forEach((src) => {
+                const card = document.createElement('div');
+                card.className = 'ribbon-card editable-img-container rounded-xl overflow-hidden shadow-lg';
+                card.onclick = function() { openImgReplacer(this); };
+                card.innerHTML = `<img src="${src}" onerror="this.src='https://placehold.co/300x400/2a0845/ff758c?text=Memory'" class="w-full h-full object-cover">`;
+                container.appendChild(card);
+            });
+        }
+
+        /* -------------------------------------------------------------
+           CENTER-STACKED DRAGGABLE / PEELABLE POLAROIDS (SLIDE 3)
+        ------------------------------------------------------------- */
+        let peeledCardIndices = new Set();
+
+        function init16Polaroids() {
+            const container = document.getElementById('polaroidsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            peeledCardIndices.clear();
+
+            const titles = [
+                "Cutie Pie ✨", "Smiles Always 😊", "My Love ❤️", "Sunshine ☀️", 
+                "Dream Girl 💫", "Sweetheart 🌸", "Bestie 🎉", "Angel 👼", 
+                "Adorable 🎈", "Precious 💖", "Star Girl 🌟", "Cutest 🍭", 
+                "Heartthrob 💕", "Stunning 🌺", "Laughter 😄", "Forever Love ♾️"
+            ];
+
+            sixteenPhotos.forEach((src, idx) => {
+                const card = document.createElement('div');
+                card.className = 'polaroid-card';
+                card.dataset.cardIndex = idx;
+
+                // Subtle natural deck rotation (-4deg to +4deg)
+                const baseRot = ((idx % 5) - 2) * 1.8;
+                card.dataset.baseRot = baseRot;
+                card.style.zIndex = 30 - idx; // Photo 1 (idx 0) on top, Photo 16 (idx 15) at bottom
+                card.style.transform = `translate(-50%, -50%) rotate(${baseRot}deg)`;
+
+                card.innerHTML = `
+                    <div class="w-44 sm:w-52 md:w-56 h-48 sm:h-56 md:h-60 editable-img-container rounded-md overflow-hidden bg-neutral-100">
+                        <img src="${src}" onerror="this.src='https://placehold.co/300x300/2a0845/ff758c?text=Photo+${idx + 1}'" class="w-full h-full object-cover pointer-events-none">
+                    </div>
+                    <div class="mt-2 flex items-center justify-between px-1 gap-1">
+                        <div contenteditable="true" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" class="flex-1 text-center font-hand text-base sm:text-lg font-bold text-gray-800 leading-tight">
+                            ${titles[idx]}
+                        </div>
+                        <span class="text-[10px] font-mono text-gray-400 shrink-0">#${idx + 1}</span>
+                    </div>
+                `;
+
+                const imgBox = card.querySelector('.editable-img-container');
+                imgBox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!hasDraggedPolaroid && !document.body.classList.contains('readonly-mode')) {
+                        openImgReplacer(imgBox);
+                    }
+                });
+
+                card.addEventListener('mousedown', dragStart);
+                card.addEventListener('touchstart', dragStart, { passive: false });
+                container.appendChild(card);
+            });
+
+            updateStackCounter();
+        }
+
+        function updateStackCounter() {
+            const badge = document.getElementById('stackCounterBadge');
+            if (!badge) return;
+            const remaining = sixteenPhotos.length - peeledCardIndices.size;
+            const endNote = document.getElementById('deckEndNote');
+            if (endNote) {
+                endNote.classList.toggle('opacity-0', remaining > 0);
+                endNote.classList.toggle('pointer-events-none', remaining > 0);
+            }
+            if (remaining <= 0) {
+                badge.textContent = `All 16 Photos Viewed`;
+            } else {
+                const currentTopNumber = peeledCardIndices.size + 1;
+                badge.textContent = `Photo ${currentTopNumber} of ${sixteenPhotos.length}`;
+            }
+        }
+
+        function peelCardElement(card, directionX = 1) {
+            if (!card || card.dataset.peeled === 'true') return;
+            const idx = Number(card.dataset.cardIndex);
+            card.dataset.peeled = 'true';
+            peeledCardIndices.add(idx);
+
+            const flyX = directionX >= 0 ? 420 : -420;
+            const flyRot = directionX >= 0 ? 24 : -24;
+            card.classList.remove('dragging');
+            card.style.transform = `translate(calc(-50% + ${flyX}px), calc(-50% - 40px)) rotate(${flyRot}deg)`;
+            card.style.opacity = '0';
+            card.style.pointerEvents = 'none';
+
+            updateStackCounter();
+        }
+
+        function peelTopPolaroid() {
+            const cards = Array.from(document.querySelectorAll('#polaroidsContainer .polaroid-card'));
+            const topCard = cards.find(c => c.dataset.peeled !== 'true');
+            if (topCard) {
+                const dir = Number(topCard.dataset.cardIndex) % 2 === 0 ? 1 : -1;
+                peelCardElement(topCard, dir);
+            } else {
+                resetPolaroidStack();
+            }
+        }
+
+        function resetPolaroidStack() {
+            peeledCardIndices.clear();
+            const cards = document.querySelectorAll('#polaroidsContainer .polaroid-card');
+            cards.forEach((card) => {
+                const idx = Number(card.dataset.cardIndex);
+                const baseRot = card.dataset.baseRot || 0;
+                card.dataset.peeled = 'false';
+                card.style.zIndex = 30 - idx;
+                card.style.opacity = '1';
+                card.style.pointerEvents = 'auto';
+                card.style.transform = `translate(-50%, -50%) rotate(${baseRot}deg)`;
+            });
+            updateStackCounter();
+        }
+
+        let activePolaroid = null;
+        let hasDraggedPolaroid = false;
+        let startX = 0, startY = 0, currentDragX = 0, currentDragY = 0;
+
+        let lastTouchAt = 0;
+        function dragStart(e) {
+            if (e.type === 'touchstart') lastTouchAt = Date.now();
+            else if (Date.now() - lastTouchAt < 800) return; // emulated mouse event after a touch
+            if (e.target && e.target.getAttribute('contenteditable') === 'true' && !document.body.classList.contains('readonly-mode')) {
+                return;
+            }
+            activePolaroid = e.currentTarget;
+            if (activePolaroid.dataset.peeled === 'true') {
+                activePolaroid = null;
+                return;
+            }
+            hasDraggedPolaroid = false;
+            currentDragX = 0;
+            currentDragY = 0;
+            activePolaroid.classList.add('dragging');
+            activePolaroid.style.zIndex = 35;
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX;
+            startY = clientY;
+
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('touchmove', dragMove, { passive: false });
+            document.addEventListener('touchend', dragEnd);
+        }
+
+        function dragMove(e) {
+            if (!activePolaroid) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                hasDraggedPolaroid = true;
+                e.preventDefault();
+                currentDragX = dx;
+                currentDragY = dy;
+                const baseRot = Number(activePolaroid.dataset.baseRot) || 0;
+                const tilt = baseRot + (dx * 0.06);
+                activePolaroid.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${tilt}deg)`;
+            }
+        }
+
+        function dragEnd(e) {
+            if (activePolaroid) {
+                const card = activePolaroid;
+                const idx = Number(card.dataset.cardIndex);
+                const baseRot = Number(card.dataset.baseRot) || 0;
+                card.classList.remove('dragging');
+                card.style.zIndex = 30 - idx;
+
+                if (hasDraggedPolaroid) {
+                    // If dragged/swiped far enough (> 75px in any direction), peel away to reveal next card
+                    if (Math.hypot(currentDragX, currentDragY) > 75) {
+                        peelCardElement(card, currentDragX || 1);
+                    } else {
+                        // Snap neatly back to center deck
+                        card.style.transform = `translate(-50%, -50%) rotate(${baseRot}deg)`;
+                    }
+                } else {
+                    // In readonly-mode (or on tap), tapping the card peels to the next photo!
+                    if (document.body.classList.contains('readonly-mode')) {
+                        peelCardElement(card, idx % 2 === 0 ? 1 : -1);
+                    } else if (e.type === 'touchend') {
+                        const imgBox = e.target.closest('.editable-img-container');
+                        if (imgBox) {
+                            openImgReplacer(imgBox);
+                        }
+                    }
+                }
+            }
+            activePolaroid = null;
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('touchmove', dragMove);
+            document.removeEventListener('touchend', dragEnd);
+        }
+
+        function showNote(text) {
+            const modal = document.getElementById('noteModal');
+            const txt = document.getElementById('noteModalText');
+            if (txt) txt.textContent = text;
+            if (modal) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function closeNote() {
+            const modal = document.getElementById('noteModal');
+            if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        /* -------------------------------------------------------------
+           3:4 RATIO 3D SCRAPBOOK (SLIDE 4)
+        ------------------------------------------------------------- */
+        let currentSheetIndex = -1;
+        const totalPhotoSheets = 16;
+        const totalBookSheets = 17;
+
+        function initRealOpenBookScrapbook() {
+            const container = document.getElementById('realBookSheetsContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const stickers = ['🎈', '🌸', '✨', '🎂', '💖', '🎁', '🎉', '🌟', '🍰', '🧁', '🎀', '💌', '🍭', '⭐', '💫', '🥳'];
+            const leftNotes = [
+                "You bring so much sunshine and magic into every single day! ☀️✨",
+                "Wishing you endless happiness, sweet smiles, and big dreams coming true! 🌸",
+                "May your special day be filled with warm hugs and sweet surprises! 🎂💖",
+                "Cheers to another year of gorgeous memories together! 🎉🥂",
+                "Your smile brightens up the darkest rooms. Keep shining brightly! 🌟",
+                "I am so grateful for every laugh, journey, and moment we share! 💕",
+                "May your cake be sweet and your birthday even sweeter! 🍰🎈",
+                "You are truly one of a kind. Celebrating the amazing person you are! 💖",
+                "Sending you oceans of love and happiness on your birthday! 🌊🎀",
+                "Every memory with you is a treasure I hold close to my heart! 💌",
+                "Hope all your birthday wishes come true today and always! ⭐✨",
+                "To the sweetest soul: may your year ahead be pure magic! 💫🍭",
+                "Stay silly, stay beautiful, stay wonderful as you are! 🥳🎉",
+                "Here's to love, laughter, and your brightest year yet! 🌸💫",
+                "Wishing you all the joy your heart can hold today! ❤️🎁",
+                "Happy Birthday my love! You mean the whole world to me! ♾️💖"
+            ];
+
+            const coverSheet = document.createElement('div');
+            coverSheet.id = `bookSheet0`;
+            coverSheet.className = `book-sheet`;
+            coverSheet.style.zIndex = totalBookSheets;
+
+            coverSheet.innerHTML = `
+                <div class="sheet-face front-face cover-face">
+                    <div class="text-4xl my-2 animate-pulse">🎂</div>
+                    <h2 contenteditable="true" onclick="event.stopPropagation()" class="text-xl md:text-2xl font-extrabold font-cursive text-center text-pink-300">
+                        Happy Birthday Book
+                    </h2>
+                    <p contenteditable="true" onclick="event.stopPropagation()" class="font-hand text-pink-100 text-xs md:text-sm text-center mt-2 px-2">
+                        "Tap or click cover to open our memory scrapbook! ❤️"
+                    </p>
+                    <div class="mt-4 text-[10px] text-pink-400 font-mono tracking-widest uppercase">Click Cover to Turn →</div>
+                </div>
+                <div class="sheet-face back-face">
+                    <div class="bday-tape"></div>
+                    <div contenteditable="true" onclick="event.stopPropagation()" class="bday-sticker top-2 left-2">✨</div>
+                    <span class="text-stone-400 font-mono text-[9px] uppercase tracking-widest">Page 1 Message</span>
+                    <div class="w-full flex-1 flex flex-col justify-center items-center p-2 bg-pink-50/50 rounded-lg border border-pink-200/50 my-1">
+                        <div contenteditable="true" onclick="event.stopPropagation()" class="text-2xl mb-1">💖</div>
+                        <p contenteditable="true" onclick="event.stopPropagation()" class="font-hand text-stone-800 text-xs md:text-sm leading-relaxed text-center">
+                            "${leftNotes[0]}"
+                        </p>
+                    </div>
+                </div>
+            `;
+            coverSheet.onclick = function() {
+                if (this.classList.contains('turned')) flipBookPrev();
+                else flipBookNext();
+            };
+            container.appendChild(coverSheet);
+
+            for (let i = 1; i <= totalPhotoSheets; i++) {
+                const sheet = document.createElement('div');
+                sheet.id = `bookSheet${i}`;
+                sheet.className = `book-sheet`;
+                sheet.style.zIndex = totalBookSheets - i;
+
+                const photoUrl = sixteenPhotos[i - 1];
+                const sticker = stickers[(i - 1) % stickers.length];
+                const nextLeftNote = leftNotes[i] || leftNotes[15];
+                const nextSticker = stickers[i % stickers.length];
+
+                sheet.innerHTML = `
+                    <div class="sheet-face front-face">
+                        <div class="bday-tape"></div>
+                        <div contenteditable="true" onclick="event.stopPropagation()" class="bday-sticker top-1 right-2">${sticker}</div>
+                        <span class="text-stone-400 font-mono text-[9px] uppercase tracking-widest">Photo Page ${i} of 16</span>
+                        <div class="w-full h-32 md:h-44 editable-img-container rounded-lg shadow-md bg-white p-1.5" onclick="event.stopPropagation(); openImgReplacer(this)">
+                            <img src="${photoUrl}" onerror="this.src='https://placehold.co/300x300/fffdf9/ff758c?text=Page+${i}'" class="w-full h-full object-cover rounded">
+                        </div>
+                        <p contenteditable="true" onclick="event.stopPropagation()" class="font-hand text-stone-800 text-xs leading-tight text-center mt-1">
+                            "Birthday Photo #${i} — Beautiful smile and unforgettable moment!"
+                        </p>
+                    </div>
+                    <div class="sheet-face back-face">
+                        <div class="bday-tape"></div>
+                        <div contenteditable="true" onclick="event.stopPropagation()" class="bday-sticker top-1 left-2">${nextSticker}</div>
+                        <span class="text-stone-400 font-mono text-[9px] uppercase tracking-widest">Page ${i + 1} Message</span>
+                        <div class="w-full flex-1 flex flex-col justify-center items-center p-2 bg-pink-50/50 rounded-lg border border-pink-200/50 my-1">
+                            <div contenteditable="true" onclick="event.stopPropagation()" class="text-2xl mb-1">${nextSticker}</div>
+                            <p contenteditable="true" onclick="event.stopPropagation()" class="font-hand text-stone-800 text-xs md:text-sm leading-relaxed text-center">
+                                "${nextLeftNote}"
+                            </p>
+                        </div>
+                    </div>
+                `;
+
+                sheet.onclick = function() {
+                    if (this.classList.contains('turned')) flipBookPrev();
+                    else flipBookNext();
+                };
+
+                container.appendChild(sheet);
+            }
+            updateBookIndicator();
+        }
+
+        function flipBookNext() {
+            if (currentSheetIndex < totalPhotoSheets) {
+                currentSheetIndex++;
+                const sheet = document.getElementById(`bookSheet${currentSheetIndex}`);
+                if (sheet) {
+                    sheet.classList.add('turned');
+                    sheet.style.zIndex = totalBookSheets + currentSheetIndex;
+                }
+                updateBookIndicator();
+            }
+        }
+
+        function flipBookPrev() {
+            if (currentSheetIndex >= 0) {
+                const sheet = document.getElementById(`bookSheet${currentSheetIndex}`);
+                if (sheet) {
+                    sheet.classList.remove('turned');
+                    sheet.style.zIndex = totalBookSheets - currentSheetIndex;
+                }
+                currentSheetIndex--;
+                updateBookIndicator();
+            }
+        }
+
+        function updateBookIndicator() {
+            const indicator = document.getElementById('bookPageIndicator');
+            if (!indicator) return;
+            if (currentSheetIndex === -1) indicator.textContent = "Closed Cover";
+            else if (currentSheetIndex === 0) indicator.textContent = "Cover Opened (Page 1 Ready)";
+            else indicator.textContent = `Photo Page ${currentSheetIndex} of 16`;
+        }
+
+        /* -------------------------------------------------------------
+           3D UNIVERSE (SLIDE 5)
+        ------------------------------------------------------------- */
+        let scene, camera, renderer, universeGroup, orbitControls;
+        let render3DFrame = null, universeReady = false, universeRunning = false;
+        const universeCardMeshes = [];
+
+        function init3DUniverse() {
+            const container = document.getElementById('threeContainer');
+            if (!container) return;
+            scene = new THREE.Scene();
+
+            const isMobile = window.innerWidth < 640;
+            const width = container.clientWidth || 640;
+            const height = container.clientHeight || 360;
+            camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+            camera.position.set(0, 0, isMobile ? 22 : 16);
+
+            renderer = new THREE.WebGLRenderer({ antialias: !isMobile, alpha: true, powerPreference: 'high-performance' });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+            container.appendChild(renderer.domElement);
+
+            if (THREE.OrbitControls) {
+                orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+                orbitControls.enableDamping = true;
+                orbitControls.dampingFactor = 0.05;
+                orbitControls.maxDistance = 40;
+                orbitControls.minDistance = 5;
+            }
+
+            universeGroup = new THREE.Group();
+            scene.add(universeGroup);
+
+            const starGeometry = new THREE.BufferGeometry();
+            const starPositions = new Float32Array(800 * 3);
+            for(let i=0; i<800*3; i++) starPositions[i] = (Math.random() - 0.5) * 60;
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+            scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xff758c, size: 0.15 })));
+
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.setCrossOrigin('anonymous');
+            const frameWidth = isMobile ? 2.0 : 2.4;
+            const frameHeight = isMobile ? 2.6 : 3.0;
+
+            universeCardMeshes.length = 0;
+            sixteenPhotos.forEach((url, i) => {
+                textureLoader.load(url, (texture) => {
+                    const cardMesh = new THREE.Mesh(
+                        new THREE.PlaneGeometry(frameWidth, frameHeight), 
+                        new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
+                    );
+                    const angle = (i / sixteenPhotos.length) * Math.PI * 2;
+                    const radius = isMobile ? 7 + (i % 2) * 2 : 8.5 + (i % 3);
+                    cardMesh.position.x = Math.cos(angle) * radius;
+                    cardMesh.position.y = ((i % 4) - 1.5) * 1.8;
+                    cardMesh.position.z = Math.sin(angle) * radius;
+                    cardMesh.lookAt(0, 0, 0);
+                    cardMesh.userData = { photoIndex: i };
+                    universeGroup.add(cardMesh);
+                    universeCardMeshes.push(cardMesh);
+                }, undefined, () => {
+                    const cardMesh = new THREE.Mesh(
+                        new THREE.PlaneGeometry(frameWidth, frameHeight), 
+                        new THREE.MeshBasicMaterial({ color: 0xff758c, side: THREE.DoubleSide })
+                    );
+                    const angle = (i / sixteenPhotos.length) * Math.PI * 2;
+                    const radius = isMobile ? 7 + (i % 2) * 2 : 8.5 + (i % 3);
+                    cardMesh.position.x = Math.cos(angle) * radius;
+                    cardMesh.position.y = ((i % 4) - 1.5) * 1.8;
+                    cardMesh.position.z = Math.sin(angle) * radius;
+                    cardMesh.lookAt(0, 0, 0);
+                    cardMesh.userData = { photoIndex: i };
+                    universeGroup.add(cardMesh);
+                    universeCardMeshes.push(cardMesh);
+                });
+            });
+
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            container.addEventListener('click', (e) => {
+                if (document.body.classList.contains('readonly-mode')) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(universeCardMeshes);
+                if (intersects.length > 0) {
+                    const clickedMesh = intersects[0].object;
+                    targetImgElement = {
+                        // Stores the small copy (travels in the link) AND the sharp copy (shown + used in full-quality file)
+                        setPhoto(shareUrl, sharpUrl) {
+                            const pi = clickedMesh.userData.photoIndex;
+                            sixteenPhotos[pi] = shareUrl;
+                            sixteenPhotosSharp[pi] = sharpUrl;
+                            const loader = new THREE.TextureLoader();
+                            loader.setCrossOrigin('anonymous');
+                            loader.load(sharpUrl, (newTex) => {
+                                clickedMesh.material.map = newTex;
+                                clickedMesh.material.color.setHex(0xffffff);
+                                clickedMesh.material.needsUpdate = true;
+                            });
+                        },
+                        set src(newUrl) {
+                            delete sixteenPhotosSharp[clickedMesh.userData.photoIndex];
+                            sixteenPhotos[clickedMesh.userData.photoIndex] = newUrl;
+                            const loader = new THREE.TextureLoader();
+                            loader.setCrossOrigin('anonymous');
+                            loader.load(newUrl, (newTex) => {
+                                clickedMesh.material.map = newTex;
+                                clickedMesh.material.color.setHex(0xffffff);
+                                clickedMesh.material.needsUpdate = true;
+                            });
+                        },
+                        get src() {
+                            return sixteenPhotos[clickedMesh.userData.photoIndex];
+                        }
+                    };
+                    openImgReplacer(container);
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if (!container || !renderer || !camera) return;
+                const w = container.clientWidth || 640;
+                const h = container.clientHeight || 360;
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            });
+
+            render3DFrame = function () {
+                if (orbitControls) orbitControls.update();
+                else universeGroup.rotation.y += 0.0025;
+                renderer.render(scene, camera);
+            };
+            render3DFrame();
+        }
+
+        /* The 3D scene is built only when the viewer gets near it (after any shared edits are applied,
+           so photos load once instead of twice) and it only renders while slide 5 is visible. */
+        function ensure3DUniverse() {
+            if (universeReady) return;
+            universeReady = true;
+            init3DUniverse();
+        }
+        function start3DLoop() {
+            if (universeRunning || !render3DFrame) return;
+            universeRunning = true;
+            const tick = () => {
+                if (currentSlide !== 5 || document.hidden || window.__cropOpen) { universeRunning = false; return; }
+                requestAnimationFrame(tick);
+                render3DFrame();
+            };
+            requestAnimationFrame(tick);
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && currentSlide === 5) start3DLoop();
+        });
+
+        /* -------------------------------------------------------------
+           IPHONE CHAT ANIMATION (SLIDE 6)
+        ------------------------------------------------------------- */
+        let chatScriptMessages = [
+            { sender: 'received', text: "Hey! Happy Birthday! 🎉🎂" },
+            { sender: 'received', text: "Wishing you the absolute best day ever! You deserve all the love in the world. 💖" },
+            { sender: 'received', text: "Hope you love this little interactive surprise I made for you! ✨" }
+        ];
+        let chatTimers = [];
+        let newMsgSenderType = 'received';
+
+        function toggleChatSenderType() {
+            const btn = document.getElementById('chatSenderToggle');
+            if (newMsgSenderType === 'received') {
+                newMsgSenderType = 'sent';
+                if (btn) btn.innerHTML = '<i class="fas fa-arrow-up mr-0.5"></i> Out';
+            } else {
+                newMsgSenderType = 'received';
+                if (btn) btn.innerHTML = '<i class="fas fa-arrow-down mr-0.5"></i> In';
+            }
+        }
+
+        function createEditableChatBubble(item, index) {
+            const bubble = document.createElement('div');
+            const isReceived = item.sender === 'received';
+            bubble.className = `chat-msg-anim max-w-[82%] p-2 rounded-xl text-[11px] leading-snug ${
+                isReceived ? 'self-start chat-bubble-received text-white' : 'self-end chat-bubble-sent text-white'
+            }`;
+            bubble.textContent = item.text;
+            bubble.setAttribute('contenteditable', 'true');
+            bubble.setAttribute('title', 'Click to edit this message');
+
+            bubble.addEventListener('input', () => {
+                if (chatScriptMessages[index]) {
+                    chatScriptMessages[index].text = bubble.textContent;
+                }
+            });
+
+            return bubble;
+        }
+
+        function triggerChatAnimation() {
+            const container = document.getElementById('dynamicChatContainer');
+            const typingIndicator = document.getElementById('typingIndicator');
+            const statusText = document.getElementById('chatStatusText');
+            if (!container) return;
+
+            chatTimers.forEach(t => clearTimeout(t));
+            chatTimers = [];
+
+            container.innerHTML = '';
+            if (typingIndicator) typingIndicator.style.display = 'inline-flex';
+            if (statusText) statusText.textContent = 'Typing...';
+
+            let delay = 500;
+            chatScriptMessages.forEach((item, idx) => {
+                const timer = setTimeout(() => {
+                    if (idx === chatScriptMessages.length - 1 && typingIndicator) {
+                        typingIndicator.style.display = 'none';
+                        if (statusText) statusText.textContent = 'Online';
+                    }
+                    const bubble = createEditableChatBubble(item, idx);
+                    container.appendChild(bubble);
+                    const area = document.getElementById('chatMessagesArea');
+                    if (area) area.scrollTop = area.scrollHeight;
+                }, delay);
+                chatTimers.push(timer);
+                delay += 950;
+            });
+        }
+
+        function addCustomChatMessage() {
+            const input = document.getElementById('chatInput');
+            const container = document.getElementById('dynamicChatContainer');
+            const typingIndicator = document.getElementById('typingIndicator');
+            const statusText = document.getElementById('chatStatusText');
+            if (!input || !container || !input.value.trim()) return;
+
+            const newItem = {
+                sender: newMsgSenderType,
+                text: input.value.trim()
+            };
+            const newIndex = chatScriptMessages.length;
+            chatScriptMessages.push(newItem);
+
+            if (typingIndicator) typingIndicator.style.display = 'none';
+            if (statusText) statusText.textContent = 'Online';
+
+            const bubble = createEditableChatBubble(newItem, newIndex);
+            container.appendChild(bubble);
+            input.value = '';
+
+            const area = document.getElementById('chatMessagesArea');
+            if (area) area.scrollTop = area.scrollHeight;
+        }
+
+        /* -------------------------------------------------------------
+           IMAGE REPLACER MODAL & STATE SHARING
+        ------------------------------------------------------------- */
+        let targetImgElement = null;
+
+        function openImgReplacer(el) {
+            if (document.body.classList.contains('readonly-mode')) return;
+            if (el.id !== 'threeContainer') {
+                targetImgElement = el.querySelector('img') || el;
+            }
+            const statusEl = document.getElementById('uploadStatusText');
+            if (statusEl) {
+                statusEl.textContent = '';
+                statusEl.classList.add('hidden');
+            }
+            const modal = document.getElementById('imgModal');
+            if (modal) modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function triggerDeviceFilePicker() {
+            const fileInput = document.getElementById('imgFileInput');
+            if (!fileInput) return;
+            fileInput.value = '';
+            fileInput.click();
+        }
+
+        function closeImgModal() {
+            const modal = document.getElementById('imgModal');
+            if (modal) modal.classList.add('opacity-0', 'pointer-events-none');
+            targetImgElement = null;
+        }
+
+        function compressImageDataUrl(dataUrl, maxDim, quality, callback) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+                callback(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = function() {
+                callback(dataUrl);
+            };
+            img.src = dataUrl;
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file || !targetImgElement) return;
+
+            const statusEl = document.getElementById('uploadStatusText');
+            if (statusEl) {
+                statusEl.textContent = '⏳ Opening photo...';
+                statusEl.classList.remove('hidden');
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                openCropper(e.target.result);
+            };
+            reader.onerror = function() {
+                if (statusEl) {
+                    statusEl.textContent = '⚠️ Could not read file. Try another image.';
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Takes the (already cropped) photo and stores two copies: a sharp one for editing and a
+        // smaller one that travels inside the share link (the link has to carry the whole photo).
+        // Raise SHARE_IMG_MAX_DIM / SHARE_IMG_QUALITY for sharper photos for the recipient (longer link).
+        function applyPhotoDataUrl(original) {
+            const SHARE_IMG_MAX_DIM = 360;
+            const SHARE_IMG_QUALITY = 0.6;
+            compressImageDataUrl(original, 1280, 0.85, (sharpDataUrl) => {
+                compressImageDataUrl(original, SHARE_IMG_MAX_DIM, SHARE_IMG_QUALITY, (shareDataUrl) => {
+                    const el = targetImgElement;
+                    if (el) {
+                        if (el.dataset) {
+                            el.src = sharpDataUrl;
+                            el.dataset.shareSrc = shareDataUrl;
+                        } else if (typeof el.setPhoto === 'function') {
+                            el.setPhoto(shareDataUrl, sharpDataUrl); // 3D universe: sharp texture + small link copy
+                        } else {
+                            el.src = shareDataUrl;
+                        }
+                    }
+                    closeImgModal();
+                });
+            });
+        }
+
+        /* ---------------- Crop step (runs after you pick a photo, before it is added) ---------------- */
+        const crop = { img: null, nw: 0, nh: 0, dw: 0, dh: 0, rect: { x: 0, y: 0, w: 0, h: 0 }, ratio: null, slotRatio: null, drag: null, ready: false };
+
+        function getSlotRatio() {
+            const el = targetImgElement;
+            if (!el || typeof el.closest !== 'function') return null;
+            const box = el.closest('.editable-img-container');
+            if (!box) return null;
+            const w = box.clientWidth, h = box.clientHeight;
+            return (w > 20 && h > 20) ? w / h : null;
+        }
+
+        function cropUpdateBox() {
+            const box = document.getElementById('cropBox');
+            const r = crop.rect;
+            box.style.transform = 'translate(' + r.x + 'px,' + r.y + 'px)';
+            box.style.width = r.w + 'px';
+            box.style.height = r.h + 'px';
+        }
+
+        function cropSetRatio(ratio, key) {
+            crop.ratio = ratio;
+            const dw = crop.dw, dh = crop.dh;
+            let w, h;
+            if (ratio) {
+                w = dw; h = w / ratio;
+                if (h > dh) { h = dh; w = h * ratio; }
+                w *= 0.9; h *= 0.9;
+            } else {
+                w = dw * 0.9; h = dh * 0.9;
+            }
+            crop.rect = { x: (dw - w) / 2, y: (dh - h) / 2, w: w, h: h };
+            cropUpdateBox();
+            document.querySelectorAll('#cropRatios .crop-ratio-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.r === key);
+            });
+        }
+
+        function cropApplyMove(cx, cy) {
+                const d = crop.drag;
+                if (!d) return;
+                const dw = crop.dw, dh = crop.dh;
+                if (d.mode === 'move') {
+                    const nx = Math.min(Math.max(d.start.x + (cx - d.sx), 0), dw - d.start.w);
+                    const ny = Math.min(Math.max(d.start.y + (cy - d.sy), 0), dh - d.start.h);
+                    crop.rect = { x: nx, y: ny, w: d.start.w, h: d.start.h };
+                } else {
+                    const px = Math.min(Math.max(cx - d.stageLeft, 0), dw);
+                    const py = Math.min(Math.max(cy - d.stageTop, 0), dh);
+                    const r = d.start, MIN = 40, ratio = crop.ratio;
+                    let ax, ay, dirX, dirY;
+                    if (d.corner === 'se') { ax = r.x; ay = r.y; dirX = 1; dirY = 1; }
+                    else if (d.corner === 'ne') { ax = r.x; ay = r.y + r.h; dirX = 1; dirY = -1; }
+                    else if (d.corner === 'sw') { ax = r.x + r.w; ay = r.y; dirX = -1; dirY = 1; }
+                    else { ax = r.x + r.w; ay = r.y + r.h; dirX = -1; dirY = -1; }
+                    const maxW = dirX > 0 ? dw - ax : ax;
+                    const maxH = dirY > 0 ? dh - ay : ay;
+                    let w = Math.max((px - ax) * dirX, 0);
+                    let h = Math.max((py - ay) * dirY, 0);
+                    if (ratio) {
+                        if (w / ratio > h) h = w / ratio; else w = h * ratio;
+                        const lim = Math.min(maxW, maxH * ratio);
+                        const minW = Math.min(Math.max(MIN, MIN * ratio), lim);
+                        w = Math.min(Math.max(w, minW), lim);
+                        h = w / ratio;
+                    } else {
+                        w = Math.min(Math.max(w, Math.min(MIN, maxW)), maxW);
+                        h = Math.min(Math.max(h, Math.min(MIN, maxH)), maxH);
+                    }
+                    crop.rect = { x: dirX > 0 ? ax : ax - w, y: dirY > 0 ? ay : ay - h, w: w, h: h };
+                }
+                cropUpdateBox();
+        }
+
+        function cropInitEvents() {
+            if (crop.ready) return;
+            crop.ready = true;
+            const stage = document.getElementById('cropStage');
+            const box = document.getElementById('cropBox');
+
+            document.getElementById('cropRatios').addEventListener('click', (e) => {
+                const btn = e.target.closest('.crop-ratio-btn');
+                if (!btn) return;
+                const v = btn.dataset.r;
+                if (v === 'free') cropSetRatio(null, 'free');
+                else if (v === 'slot') cropSetRatio(crop.slotRatio, 'slot');
+                else cropSetRatio(parseFloat(v), v);
+            });
+
+            box.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const handle = e.target.closest('.crop-handle');
+                const st = stage.getBoundingClientRect();
+                crop.drag = {
+                    mode: handle ? 'resize' : 'move',
+                    corner: handle ? handle.dataset.h : null,
+                    sx: e.clientX, sy: e.clientY,
+                    stageLeft: st.left, stageTop: st.top,
+                    start: { x: crop.rect.x, y: crop.rect.y, w: crop.rect.w, h: crop.rect.h }
+                };
+                try { box.setPointerCapture(e.pointerId); } catch (err) {}
+            });
+
+            // Heavy work runs at most once per screen frame, which keeps dragging smooth.
+            let rafId = 0, lastX = 0, lastY = 0;
+            box.addEventListener('pointermove', (e) => {
+                if (!crop.drag) return;
+                e.preventDefault();
+                lastX = e.clientX; lastY = e.clientY;
+                if (rafId) return;
+                rafId = requestAnimationFrame(() => {
+                    rafId = 0;
+                    cropApplyMove(lastX, lastY);
+                });
+            });
+
+            const endDrag = () => { crop.drag = null; };
+            box.addEventListener('pointerup', endDrag);
+            box.addEventListener('pointercancel', endDrag);
+        }
+
+        function openCropper(dataUrl) {
+            cropInitEvents();
+            const statusEl = document.getElementById('uploadStatusText');
+            const img = new Image();
+            img.onload = function() {
+                crop.img = img;
+                crop.nw = img.naturalWidth;
+                crop.nh = img.naturalHeight;
+                const maxW = Math.min(window.innerWidth - 56, 420);
+                const maxH = Math.min(window.innerHeight * 0.5, 420);
+                const scale = Math.min(maxW / crop.nw, maxH / crop.nh);
+                crop.dw = Math.max(80, Math.round(crop.nw * scale));
+                crop.dh = Math.max(80, Math.round(crop.nh * scale));
+                const stage = document.getElementById('cropStage');
+                stage.style.width = crop.dw + 'px';
+                stage.style.height = crop.dh + 'px';
+                // Show a small preview (not the full-size photo) so dragging stays smooth.
+                // The final crop is still cut from the full-resolution original.
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                const pw = Math.max(1, Math.round(crop.dw * dpr));
+                const ph = Math.max(1, Math.round(crop.dh * dpr));
+                const pc = document.createElement('canvas');
+                pc.width = pw; pc.height = ph;
+                const pctx = pc.getContext('2d');
+                pctx.imageSmoothingQuality = 'high';
+                pctx.drawImage(img, 0, 0, pw, ph);
+                document.getElementById('cropImg').src = pc.toDataURL('image/jpeg', 0.85);
+                document.getElementById('cropBox').style.boxShadow = '0 0 0 ' + Math.max(crop.dw, crop.dh) + 'px rgba(0,0,0,0.62)';
+
+                crop.slotRatio = getSlotRatio();
+                const slotBtn = document.getElementById('cropRatioSlot');
+                slotBtn.style.display = crop.slotRatio ? '' : 'none';
+                cropSetRatio(crop.slotRatio || null, crop.slotRatio ? 'slot' : 'free');
+
+                if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
+                // Hide the replace-image screen underneath (its blur effect is expensive) and pause the 3D scene.
+                const im = document.getElementById('imgModal');
+                if (im) im.style.visibility = 'hidden';
+                window.__cropOpen = true;
+                document.getElementById('cropModal').classList.remove('opacity-0', 'pointer-events-none');
+            };
+            img.onerror = function() {
+                if (statusEl) statusEl.textContent = '⚠️ Could not open that image. Try another one.';
+            };
+            img.src = dataUrl;
+        }
+
+        function closeCropper() {
+            document.getElementById('cropModal').classList.add('opacity-0', 'pointer-events-none');
+            const im = document.getElementById('imgModal');
+            if (im) im.style.visibility = '';
+            window.__cropOpen = false;
+            if (typeof currentSlide !== 'undefined' && currentSlide === 5 && typeof start3DLoop === 'function') start3DLoop();
+            crop.drag = null;
+            crop.img = null;
+            document.getElementById('cropImg').removeAttribute('src');
+        }
+
+        function cancelCrop() {
+            closeCropper();
+            const fileInput = document.getElementById('imgFileInput');
+            if (fileInput) fileInput.value = '';
+        }
+
+        function confirmCrop() {
+            if (!crop.img) return;
+            const k = crop.nw / crop.dw;
+            const sx = Math.max(0, Math.round(crop.rect.x * k));
+            const sy = Math.max(0, Math.round(crop.rect.y * k));
+            const sw = Math.max(1, Math.min(crop.nw - sx, Math.round(crop.rect.w * k)));
+            const sh = Math.max(1, Math.min(crop.nh - sy, Math.round(crop.rect.h * k)));
+            const cap = Math.min(1, 2000 / Math.max(sw, sh));
+            const cw = Math.max(1, Math.round(sw * cap));
+            const ch = Math.max(1, Math.round(sh * cap));
+            const canvas = document.createElement('canvas');
+            canvas.width = cw;
+            canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(crop.img, sx, sy, sw, sh, 0, 0, cw, ch);
+            const cropped = canvas.toDataURL('image/jpeg', 0.92);
+            closeCropper();
+            applyPhotoDataUrl(cropped);
+        }
+
+        function applyUrlImage() {
+            const urlInput = document.getElementById('imgUrlInput');
+            if (urlInput && urlInput.value.trim() && targetImgElement) {
+                if (targetImgElement.dataset) delete targetImgElement.dataset.shareSrc;
+                targetImgElement.src = urlInput.value.trim();
+                urlInput.value = '';
+                closeImgModal();
+            }
+        }
+
+        /* -------------------------------------------------------------
+           DIFFERENTIAL STATE COMPRESSION & SHORT LINK ENGINE
+        ------------------------------------------------------------- */
+        let defaultBaseline = {
+            texts: [],
+            domImages: [],
+            universePhotos: [],
+            avatar: '',
+            chat: []
+        };
+
+        /* ---- Stable IDs for editable text boxes -------------------------------
+           Boxes used to be matched by their position among [contenteditable="true"].
+           Locking changed that list, so text landed in the wrong boxes. Each box now
+           gets a permanent data-eid once, and it never changes after that. */
+        let editableTagged = false;
+        function tagEditableTexts() {
+            if (editableTagged) return;
+            editableTagged = true;
+            let n = 0;
+            document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+                if (!el.closest('#dynamicChatContainer')) el.dataset.eid = String(n++);
+            });
+        }
+        function getEditableEls() {
+            return Array.from(document.querySelectorAll('[data-eid]'));
+        }
+        /* Reads text from the DOM structure (not innerText), so hidden slides give the same result as visible ones */
+        function readEditableText(el) {
+            let out = '';
+            const walk = (node) => {
+                node.childNodes.forEach(n => {
+                    if (n.nodeType === 3) {
+                        out += n.nodeValue.replace(/\u00a0/g, ' ').replace(/[ \t\r\n\f]+/g, ' ');
+                    } else if (n.nodeName === 'BR') {
+                        out += '\n';
+                    } else if (n.nodeType === 1) {
+                        const block = /^(DIV|P|H[1-6]|LI)$/.test(n.nodeName);
+                        if (block && out && !out.endsWith('\n')) out += '\n';
+                        walk(n);
+                        if (block && !out.endsWith('\n')) out += '\n';
+                    }
+                });
+            };
+            walk(el);
+            return out.split('\n').map(l => l.trim()).join('\n').replace(/^\n+|\n+$/g, '');
+        }
+        function writeEditableText(el, text) {
+            el.textContent = '';
+            String(text).split('\n').forEach((line, i) => {
+                if (i) el.appendChild(document.createElement('br'));
+                if (line) el.appendChild(document.createTextNode(line));
+            });
+        }
+        /* Real lock: text boxes become non-editable but keep the same padding/size, so nothing moves */
+        function lockEditing() {
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+            document.body.classList.add('readonly-mode');
+            document.querySelectorAll('[data-eid]').forEach(el => el.setAttribute('contenteditable', 'false'));
+        }
+        /* Pasted text is always plain, so fonts/colours from Word, Docs or web pages cannot sneak in and then get lost on share */
+        document.addEventListener('paste', (e) => {
+            const el = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+            if (!el) return;
+            e.preventDefault();
+            const t = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, t);
+        });
+        document.addEventListener('drop', (e) => {
+            if (e.target && e.target.closest && e.target.closest('[contenteditable="true"]')) e.preventDefault();
+        });
+
+        function captureDefaultBaseline() {
+            tagEditableTexts();
+            const texts = getEditableEls().map(readEditableText);
+            const domImages = Array.from(document.querySelectorAll('.editable-img-container img')).map(img => img.src);
+            const avatar = document.getElementById('chatAvatarImg')?.src || '';
+            const chat = chatScriptMessages.map(m => ({ sender: m.sender, text: m.text }));
+
+            defaultBaseline = {
+                texts,
+                domImages,
+                universePhotos: [...sixteenPhotos],
+                avatar,
+                chat
+            };
+        }
+
+        function bytesToBase64Url(bytes) {
+            let binary = '';
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function base64UrlToBytes(b64url) {
+            const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+            const binary = atob(b64 + pad);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        async function compressPayload(jsonStr) {
+            const rawBytes = new TextEncoder().encode(jsonStr);
+            if (typeof CompressionStream !== 'undefined') {
+                try {
+                    const cs = new CompressionStream('deflate-raw');
+                    const writer = cs.writable.getWriter();
+                    writer.write(rawBytes);
+                    writer.close();
+                    const buf = await new Response(cs.readable).arrayBuffer();
+                    return 'z.' + bytesToBase64Url(new Uint8Array(buf));
+                } catch (e) {}
+            }
+            return 'r.' + bytesToBase64Url(rawBytes);
+        }
+
+        async function decompressPayload(token) {
+            if (token.startsWith('z.') && typeof DecompressionStream !== 'undefined') {
+                const compressedBytes = base64UrlToBytes(token.slice(2));
+                const ds = new DecompressionStream('deflate-raw');
+                const writer = ds.writable.getWriter();
+                writer.write(compressedBytes);
+                writer.close();
+                const buf = await new Response(ds.readable).arrayBuffer();
+                return new TextDecoder().decode(buf);
+            }
+            if (token.startsWith('r.')) {
+                return new TextDecoder().decode(base64UrlToBytes(token.slice(2)));
+            }
+            const b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+            return decodeURIComponent(escape(atob(b64 + pad)));
+        }
+
+        function collectGiftState(full) {
+            const dt = {};
+            getEditableEls().forEach(el => {
+                const id = Number(el.dataset.eid);
+                const currentVal = readEditableText(el);
+                if (currentVal !== defaultBaseline.texts[id]) {
+                    dt[id] = currentVal;
+                }
+            });
+
+            const pool = [];
+            const poolMap = new Map();
+            function internImage(src) {
+                if (!poolMap.has(src)) {
+                    poolMap.set(src, pool.length);
+                    pool.push(src);
+                }
+                return poolMap.get(src);
+            }
+
+            const di = {};
+            const domImgs = document.querySelectorAll('.editable-img-container img');
+            domImgs.forEach((img, idx) => {
+                const shareSrc = (!full && img.dataset && img.dataset.shareSrc) || img.src;
+                if (shareSrc !== defaultBaseline.domImages[idx]) {
+                    di[idx] = internImage(shareSrc);
+                }
+            });
+
+            const du = {};
+            sixteenPhotos.forEach((src0, idx) => {
+                const src = (full && sixteenPhotosSharp[idx]) || src0;
+                if (src !== defaultBaseline.universePhotos[idx]) {
+                    du[idx] = internImage(src);
+                }
+            });
+
+            const avatarEl0 = document.getElementById('chatAvatarImg');
+            const currentAvatar = (avatarEl0 && ((!full && avatarEl0.dataset && avatarEl0.dataset.shareSrc) || avatarEl0.src)) || '';
+            const da = currentAvatar !== defaultBaseline.avatar ? internImage(currentAvatar) : undefined;
+
+            const chatChanged = JSON.stringify(chatScriptMessages) !== JSON.stringify(defaultBaseline.chat);
+            const dc = chatChanged
+                ? chatScriptMessages.map(m => [m.sender === 'sent' ? 1 : 0, m.text])
+                : undefined;
+
+            const delta = { v: 4 };
+            if (Object.keys(dt).length > 0) delta.dt = dt;
+            if (pool.length > 0) delta.p = pool;
+            if (Object.keys(di).length > 0) delta.di = di;
+            if (Object.keys(du).length > 0) delta.du = du;
+            if (da !== undefined) delta.da = da;
+            if (dc !== undefined) delta.dc = dc;
+
+            return delta;
+        }
+
+        function applyGiftState(state) {
+            if (!state) return;
+
+            if (state.v === 3 || state.v === 4) {
+                const pool = Array.isArray(state.p) ? state.p : [];
+
+                if (state.du) {
+                    Object.entries(state.du).forEach(([idxStr, poolIdx]) => {
+                        const idx = Number(idxStr);
+                        if (pool[poolIdx] !== undefined) {
+                            sixteenPhotos[idx] = pool[poolIdx];
+                        }
+                    });
+                }
+
+                if (state.dt) {
+                    /* Links made by the old version (v3) were saved one box too early because the age
+                       number had been unlocked from the list, so shift them by +1 to repair them. */
+                    const shift = state.v === 3 ? 1 : 0;
+                    const byId = {};
+                    getEditableEls().forEach(el => { byId[el.dataset.eid] = el; });
+                    Object.entries(state.dt).forEach(([k, val]) => {
+                        const target = byId[String(Number(k) + shift)];
+                        if (target) writeEditableText(target, val);
+                    });
+                }
+
+                if (state.di) {
+                    const imgs = document.querySelectorAll('.editable-img-container img');
+                    Object.entries(state.di).forEach(([idxStr, poolIdx]) => {
+                        const idx = Number(idxStr);
+                        if (imgs[idx] && pool[poolIdx] !== undefined) {
+                            imgs[idx].src = pool[poolIdx];
+                        }
+                    });
+                }
+
+                if (state.da !== undefined && pool[state.da] !== undefined) {
+                    const avatarEl = document.getElementById('chatAvatarImg');
+                    if (avatarEl) avatarEl.src = pool[state.da];
+                }
+
+                if (Array.isArray(state.dc)) {
+                    chatScriptMessages = state.dc.map(entry => ({
+                        sender: entry[0] === 1 ? 'sent' : 'received',
+                        text: entry[1]
+                    }));
+                }
+
+                refresh3DUniverseTextures();
+                return;
+            }
+
+            if (state.v === 2) {
+                if (Array.isArray(state.u) && state.u.length === 16) {
+                    for (let idx = 0; idx < 16; idx++) {
+                        sixteenPhotos[idx] = state.u[idx];
+                    }
+                }
+                if (Array.isArray(state.t)) {
+                    let textIdx = 0;
+                    document.querySelectorAll('[contenteditable="true"]').forEach(el => {
+                        if (!el.closest('#dynamicChatContainer') && textIdx < state.t.length) {
+                            el.innerText = state.t[textIdx++];
+                        }
+                    });
+                }
+                if (Array.isArray(state.i)) {
+                    const imgs = document.querySelectorAll('.editable-img-container img');
+                    state.i.forEach((src, idx) => {
+                        if (imgs[idx] && src) imgs[idx].src = src;
+                    });
+                }
+                if (state.a) {
+                    const avatarEl = document.getElementById('chatAvatarImg');
+                    if (avatarEl) avatarEl.src = state.a;
+                }
+                if (Array.isArray(state.c) && state.c.length > 0) {
+                    chatScriptMessages = state.c;
+                }
+                refresh3DUniverseTextures();
+            }
+        }
+
+        function refresh3DUniverseTextures() {
+            if (universeCardMeshes.length === 0) return;
+            const loader = new THREE.TextureLoader();
+            loader.setCrossOrigin('anonymous');
+            universeCardMeshes.forEach(mesh => {
+                const pIdx = mesh.userData.photoIndex;
+                if (sixteenPhotos[pIdx]) {
+                    loader.load(sixteenPhotos[pIdx], (tex) => {
+                        mesh.material.map = tex;
+                        mesh.material.color.setHex(0xffffff);
+                        mesh.material.needsUpdate = true;
+                    }, undefined, () => {});
+                }
+            });
+        }
+
+        async function tryShortenUrl(longUrl) {
+            if (!/^https?:\/\//i.test(longUrl) || longUrl.length > 4500) {
+                return null;
+            }
+            const endpoints = [
+                `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`,
+                `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`
+            ];
+            for (const api of endpoints) {
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 3500);
+                    const res = await fetch(api, { signal: controller.signal });
+                    clearTimeout(timer);
+                    if (res.ok) {
+                        const shortText = (await res.text()).trim();
+                        if (/^https?:\/\//i.test(shortText)) {
+                            return shortText;
+                        }
+                    }
+                } catch (e) {}
+            }
+            return null;
+        }
+
+        // ---- QR code for the share link ----
+        function renderShareQr(url) {
+            const box = document.getElementById('qrBox');
+            const canvas = document.getElementById('qrCanvas');
+            const hint = document.getElementById('qrHint');
+            const input = document.getElementById('shareUrlBox');
+            const showLinkFallback = (msg) => {
+                if (box) box.style.display = 'none';
+                if (hint) hint.textContent = msg;
+                if (input) input.style.cssText = '';
+            };
+            try {
+                if (typeof qrcode === 'undefined') throw new Error('qr lib missing');
+                const bytes = new TextEncoder().encode(url).length;
+                if (bytes > 2900) {
+                    showLinkFallback('Gift link is too big for a QR (many/large photos). Copy the link below instead.');
+                    return false;
+                }
+                const qr = qrcode(0, 'L');
+                qr.addData(url, 'Byte');
+                qr.make();
+                const n = qr.getModuleCount();
+                const quiet = 2;
+                const size = canvas.width;
+                const cell = Math.floor(size / (n + quiet * 2));
+                const offset = Math.floor((size - cell * n) / 2);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = '#000000';
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < n; c++) {
+                        if (qr.isDark(r, c)) ctx.fillRect(offset + c * cell, offset + r * cell, cell, cell);
+                    }
+                }
+                if (box) box.style.display = '';
+                if (hint) hint.textContent = 'Scan with a phone camera to open the gift 🎁';
+                if (input) input.style.cssText = 'position:absolute;left:-9999px;top:0;opacity:0;';
+                return true;
+            } catch (e) {
+                showLinkFallback('Could not make a QR code. Copy the link below instead.');
+                return false;
+            }
+        }
+
+        function downloadQr() {
+            const canvas = document.getElementById('qrCanvas');
+            const box = document.getElementById('qrBox');
+            if (!canvas || !box || box.style.display === 'none') return;
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = 'birthday-gift-qr.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        // ---- Full-quality route: bake the gift (sharp photos) into a standalone locked index.html ----
+        function toggleHqPanel() {
+            const p = document.getElementById('hqPanel');
+            if (p) p.classList.toggle('hidden');
+        }
+
+        async function downloadFullQualityHtml() {
+            const st = document.getElementById('hqStatus');
+            try {
+                const state = collectGiftState(true); // true = use the sharp photos, not the small link copies
+                let src;
+                try {
+                    const r = await fetch(window.location.href.split('#')[0].split('?')[0]);
+                    if (!r.ok) throw new Error('fetch failed');
+                    src = await r.text();
+                } catch (e) {
+                    if (st) st.textContent = "Couldn't read this page's source. Open the editor from its hosted web address (not a file on your phone/PC), lock it again, then retry.";
+                    return;
+                }
+                src = src.replace(/<script id="embeddedGift">[\s\S]*?<\/script>\s*/, '');
+                const json = JSON.stringify(state)
+                    .replace(/</g, '\\u003c')
+                    .replace(/\u2028/g, '\\u2028')
+                    .replace(/\u2029/g, '\\u2029');
+                const marker = '<!-- INTERACTIVE BIRTHDAY ENGINE -->';
+                if (src.indexOf(marker) === -1) throw new Error('marker missing');
+                src = src.replace(marker, () => '<script id="embeddedGift">window.__EMBEDDED_GIFT__ = ' + json + ';<\/script>\n    ' + marker);
+                const blob = new Blob([src], { type: 'text/html' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'index.html';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+                if (st) st.textContent = '✅ Downloaded index.html with full-quality photos. Now upload it to GitHub (step 2).';
+            } catch (e) {
+                console.error(e);
+                if (st) st.textContent = 'Something went wrong making the file. Please try again.';
+            }
+        }
+
+        function onHostedUrlInput(el) {
+            const url = (el.value || '').trim();
+            const box = document.getElementById('shareUrlBox');
+            if (/^https?:\/\/\S+$/i.test(url)) {
+                if (box) box.value = url;
+                renderShareQr(url);
+                const status = document.getElementById('shareModalStatus');
+                if (status) status.textContent = '✨ QR now opens your full-quality hosted gift:';
+            }
+        }
+
+        async function lockAndShare() {
+            try {
+                const deltaState = collectGiftState(); // read everything BEFORE locking
+                lockEditing();
+                const hasChanges = Object.keys(deltaState).length > 1;
+                const baseUrl = window.location.href.split('#')[0].replace(/\s+/g, '');
+
+                let oneLineShareUrl = baseUrl;
+                if (hasChanges) {
+                    const compressedToken = await compressPayload(JSON.stringify(deltaState));
+                    oneLineShareUrl = `${baseUrl}#g=${compressedToken}`.replace(/[\r\n\s]+/g, '');
+                    try {
+                        window.history.replaceState(null, '', `#g=${compressedToken}`);
+                    } catch (e) {}
+                } else {
+                    oneLineShareUrl = `${baseUrl}#g=default`;
+                    try {
+                        window.history.replaceState(null, '', '#g=default');
+                    } catch (e) {}
+                }
+
+                const shareModal = document.getElementById('shareModal');
+                const shareUrlBox = document.getElementById('shareUrlBox');
+                const status = document.getElementById('shareModalStatus');
+                
+                if (shareUrlBox) shareUrlBox.value = oneLineShareUrl;
+                renderShareQr(oneLineShareUrl);
+                if (status) status.textContent = "Your gift is locked in read-only mode. Generating shortest link...";
+                if (shareModal) shareModal.classList.remove('opacity-0', 'pointer-events-none');
+
+                const shortened = await tryShortenUrl(oneLineShareUrl);
+                if (shortened && shareUrlBox) {
+                    shareUrlBox.value = shortened;
+                    renderShareQr(shortened);
+                    if (status) status.textContent = "✨ Short link ready! Scan the QR or copy the link:";
+                } else if (status) {
+                    status.textContent = "Your gift is locked in read-only mode. Scan the QR or copy the link:";
+                }
+            } catch (err) {
+                console.error("Lock and share error:", err);
+                const shareModal = document.getElementById('shareModal');
+                const status = document.getElementById('shareModalStatus');
+                if (status) status.textContent = "Could not generate share link. Please try again.";
+                if (shareModal) shareModal.classList.remove('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function copyShareUrl() {
+            const shareUrlBox = document.getElementById('shareUrlBox');
+            const status = document.getElementById('shareModalStatus');
+            if (!shareUrlBox) return;
+
+            const cleanOneLiner = shareUrlBox.value.replace(/[\r\n\s]+/g, '');
+            shareUrlBox.value = cleanOneLiner;
+            shareUrlBox.select();
+            shareUrlBox.setSelectionRange(0, cleanOneLiner.length);
+
+            try {
+                document.execCommand('copy');
+                if (status) status.textContent = "✅ Short link copied! Ready to paste & send!";
+            } catch (err) {
+                if (status) status.textContent = "Tap the box above and copy the link:";
+            }
+        }
+
+        function shareNativeOrWhatsApp() {
+            const shareUrlBox = document.getElementById('shareUrlBox');
+            if (!shareUrlBox || !shareUrlBox.value) return;
+            const url = shareUrlBox.value.replace(/[\r\n\s]+/g, '');
+            const text = `🎂 Happy Birthday! I made a special interactive surprise gift for you: ${url}`;
+
+            if (navigator.share) {
+                navigator.share({ title: 'Happy Birthday Gift 🎂', text: 'I made a special interactive surprise for you!', url }).catch(() => {});
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+            }
+        }
+
+        function closeShareModal() {
+            const shareModal = document.getElementById('shareModal');
+            if (shareModal) shareModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        async function checkAndLoadState() {
+            // Full-quality hosted copy: the gift is baked into the file itself
+            if (window.__EMBEDDED_GIFT__) {
+                try { applyGiftState(window.__EMBEDDED_GIFT__); } catch (e) { console.error(e); }
+                lockEditing();
+                return;
+            }
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#g=')) {
+                try {
+                    const token = hash.slice(3).replace(/[\r\n\s]+/g, '');
+                    if (token && token !== 'default') {
+                        const jsonStr = await decompressPayload(token);
+                        const state = JSON.parse(jsonStr);
+                        applyGiftState(state);
+                    }
+                    lockEditing();
+                } catch (e) {
+                    console.error("Failed to load saved gift state", e);
+                }
+            }
+        }
+
+        /* -------------------------------------------------------------
+           HAPPY BIRTHDAY THEME SONG (POLYPHONIC WEB AUDIO MUSIC BOX)
+        ------------------------------------------------------------- */
+        function triggerConfettiBurst() {
+            if (typeof confetti === 'function') confetti({ particleCount: window.innerWidth < 640 ? 50 : 90, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true });
+        }
+
+        let isAudioPlaying = false;
+        let birthdayAudioCtx = null;
+        let birthdaySongTimer = null;
+
+        // Complete "Happy Birthday to You" melody in F Major (frequencies in Hz & beat durations)
+        const happyBirthdayMelody = [
+            // "Hap-py Birth-day to you"
+            { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.25 }, { f: 293.66, d: 0.6 }, { f: 261.63, d: 0.6 }, { f: 349.23, d: 0.6 }, { f: 329.63, d: 1.1 },
+            // "Hap-py Birth-day to you"
+            { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.25 }, { f: 293.66, d: 0.6 }, { f: 261.63, d: 0.6 }, { f: 392.00, d: 0.6 }, { f: 349.23, d: 1.1 },
+            // "Hap-py Birth-day dear Swee-ty"
+            { f: 261.63, d: 0.35 }, { f: 261.63, d: 0.25 }, { f: 523.25, d: 0.6 }, { f: 440.00, d: 0.6 }, { f: 349.23, d: 0.6 }, { f: 329.63, d: 0.6 }, { f: 293.66, d: 1.1 },
+            // "Hap-py Birth-day to you"
+            { f: 466.16, d: 0.35 }, { f: 466.16, d: 0.25 }, { f: 440.00, d: 0.6 }, { f: 349.23, d: 0.6 }, { f: 392.00, d: 0.6 }, { f: 349.23, d: 1.35 }
+        ];
+
+        function playMusicBoxNote(ctx, freq, startTime, duration) {
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            // Warm bell / music-box timbre
+            osc1.type = 'sine';
+            osc2.type = 'triangle';
+            osc1.frequency.setValueAtTime(freq, startTime);
+            osc2.frequency.setValueAtTime(freq * 2, startTime); // Gentle octave shimmer
+
+            const subGain = ctx.createGain();
+            subGain.gain.setValueAtTime(0.18, startTime);
+
+            gain.gain.setValueAtTime(0.0001, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.22, startTime + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.95);
+
+            osc1.connect(gain);
+            osc2.connect(subGain);
+            subGain.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc1.start(startTime);
+            osc2.start(startTime);
+            osc1.stop(startTime + duration);
+            osc2.stop(startTime + duration);
+        }
+
+        function scheduleBirthdaySongLoop() {
+            if (!isAudioPlaying) return;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+            if (!birthdayAudioCtx) {
+                birthdayAudioCtx = new AudioContextClass();
+            }
+            if (birthdayAudioCtx.state === 'suspended') {
+                birthdayAudioCtx.resume();
+            }
+
+            let offset = birthdayAudioCtx.currentTime + 0.05;
+            let totalDuration = 0;
+
+            happyBirthdayMelody.forEach(note => {
+                playMusicBoxNote(birthdayAudioCtx, note.f, offset, note.d);
+                offset += note.d;
+                totalDuration += note.d;
+            });
+
+            clearTimeout(birthdaySongTimer);
+            birthdaySongTimer = setTimeout(() => {
+                if (isAudioPlaying) scheduleBirthdaySongLoop();
+            }, (totalDuration + 0.6) * 1000);
+        }
+
+        function stopBirthdaySong() {
+            clearTimeout(birthdaySongTimer);
+            if (birthdayAudioCtx && birthdayAudioCtx.state === 'running') {
+                birthdayAudioCtx.suspend().catch(() => {});
+            }
+        }
+
+        function toggleAudio(forcePlay = false) {
+            const icon = document.getElementById('musicIcon');
+            const text = document.getElementById('musicText');
+
+            if (forcePlay || !isAudioPlaying) {
+                if (isAudioPlaying) return;
+                isAudioPlaying = true;
+                scheduleBirthdaySongLoop();
+                if (icon) icon.className = "fas fa-pause text-pink-400 animate-spin";
+                if (text) text.textContent = "Pause Song";
+            } else {
+                isAudioPlaying = false;
+                stopBirthdaySong();
+                if (icon) icon.className = "fas fa-music text-pink-400";
+                if (text) text.textContent = "Play Birthday Song";
+            }
+        }
+
+        // Initialize all engines on load
+        window.onload = async function() {
+            initFestiveDecorations();
+            init16Polaroids();
+            initRibbonCarousel();
+            initRealOpenBookScrapbook();
+            captureDefaultBaseline();
+            await checkAndLoadState();
+        };
+    </script>
+</body>
+</html>
